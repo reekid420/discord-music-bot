@@ -120,17 +120,6 @@
             <button id="queue-shuffle" class="btn btn-secondary btn-sm">🔀 Shuffle</button>
           </div>
         </div>
-        <!-- Search bar in queue view -->
-        <div class="search-bar glass" style="margin-bottom:1.5rem">
-          <span class="search-icon">🔍</span>
-          <input
-            id="search-input-queue"
-            type="text"
-            placeholder="Add a song to queue…"
-            autocomplete="off"
-          >
-          <button id="search-btn-queue" class="btn btn-primary btn-sm">+ Add</button>
-        </div>
         <div id="queue-list" class="queue-list">
           <p class="empty-state">Queue is empty</p>
         </div>
@@ -159,6 +148,17 @@
               <button id="playlist-enqueue-btn" class="btn btn-primary btn-sm">▶ Play All</button>
               <button id="playlist-delete-btn" class="btn btn-danger btn-sm">🗑 Delete</button>
             </div>
+          </div>
+          <!-- Add song to playlist -->
+          <div class="search-bar glass" style="margin-bottom:1rem">
+            <span class="search-icon">➕</span>
+            <input
+              id="playlist-add-input"
+              type="text"
+              placeholder="Search or paste a URL to add to this playlist…"
+              autocomplete="off"
+            >
+            <button id="playlist-add-btn" class="btn btn-secondary btn-sm">+ Add</button>
           </div>
           <div id="playlist-tracks-list" class="playlist-tracks-list"></div>
         </div>

@@ -163,9 +163,8 @@ function setupSearchBar(inputId, btnId) {
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
 }
 
-// Wire up both search bars on load
+// Wire up the Now Playing search bar
 setupSearchBar('search-input', 'search-btn');
-setupSearchBar('search-input-queue', 'search-btn-queue');
 
 // ─── Guild Selector ───
 async function loadGuilds() {
@@ -521,6 +520,56 @@ $('#playlist-delete-btn').addEventListener('click', async () => {
   await fetch(`/api/playlists/${currentPlaylistId}`, { method: 'DELETE' });
   $('#playlist-back-btn').click();
 });
+
+// ─── Add Song to Playlist ───
+(function setupPlaylistAddSong() {
+  const input = $('#playlist-add-input');
+  const btn = $('#playlist-add-btn');
+  if (!input || !btn) return;
+
+  async function submit() {
+    const query = input.value.trim();
+    if (!query || !currentPlaylistId) return;
+
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳';
+
+    try {
+      // Resolve the query to a track via the search endpoint
+      const searchRes = await fetch(`/api/player/search?query=${encodeURIComponent(query)}`);
+      if (!searchRes.ok) throw new Error('Search failed');
+      const { tracks } = await searchRes.json();
+      if (!tracks || !tracks.length) throw new Error('No results found');
+
+      const track = tracks[0];
+      const addRes = await fetch(`/api/playlists/${currentPlaylistId}/tracks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: track.title,
+          url: track.url,
+          duration_ms: track.durationMs,
+          thumbnail: track.thumbnail,
+        }),
+      });
+      if (!addRes.ok) throw new Error('Failed to add track');
+
+      btn.textContent = '✅';
+      input.value = '';
+      // Refresh the track list
+      openPlaylistDetail(currentPlaylistId);
+      setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
+    } catch (err) {
+      btn.textContent = '❌';
+      btn.title = err.message;
+      setTimeout(() => { btn.textContent = originalText; btn.disabled = false; btn.title = ''; }, 3000);
+    }
+  }
+
+  btn.addEventListener('click', submit);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+})();
 
 // Create playlist
 $('#playlist-create-btn').addEventListener('click', () => {

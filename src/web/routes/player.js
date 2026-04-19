@@ -10,6 +10,29 @@ import { emitPlayerState } from '../server.js';
 export function playerRoutes(client, io) {
   const router = Router();
 
+  // GET /api/player/search?query=<text> — resolve a query to track metadata (for playlist add)
+  router.get('/search', async (req, res) => {
+    const { query } = req.query;
+    if (!query) return res.status(400).json({ error: 'query param required' });
+
+    try {
+      const result = await client.player.search(query, {
+        searchEngine: QueryType.YOUTUBE_SEARCH,
+      });
+      const tracks = (result.tracks || []).slice(0, 5).map(t => ({
+        title: t.title,
+        url: t.url,
+        durationMs: t.durationMS,
+        duration: t.duration,
+        thumbnail: t.thumbnail,
+        artist: t.author,
+      }));
+      res.json({ tracks });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // GET /api/player?guild=<id> — current player state
   router.get('/', (req, res) => {
     const guildId = req.query.guild;
