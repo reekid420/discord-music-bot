@@ -37,6 +37,11 @@ export async function execute(interaction) {
         leaveOnEndCooldown: 300_000,
       },
       requestedBy: interaction.user,
+      // Pin to a plain search so discord-player never resolves a query into a
+      // YouTube Mix/auto-playlist (which would dump 20+ related tracks into queue).
+      // URLs are still resolved correctly because the extractor checks for a URL
+      // first before falling back to the search engine.
+      searchEngine: QueryType.YOUTUBE_SEARCH,
     });
 
     const track = result.track;

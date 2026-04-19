@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { getMemberVoiceChannel } from '../utils/permissions.js';
-import { useQueue } from 'discord-player';
+import { QueryType, useQueue } from 'discord-player';
 import {
   createPlaylist, getUserPlaylists, getPlaylistByName, getPlaylistById,
   getPlaylistTracks, addPlaylistTrack, deletePlaylist, updatePlaylist,
@@ -164,6 +164,9 @@ async function handlePlay(interaction) {
           leaveOnEnd: false,
         },
         requestedBy: interaction.user,
+        // Treat stored entries as direct URLs/auto-detect so they never
+        // trigger a keyword search that could pull in a YouTube Mix.
+        searchEngine: QueryType.AUTO,
       });
       added++;
     } catch (err) {
