@@ -1,0 +1,27 @@
+[Unit]
+Description=Groove Music Bot
+After=network.target
+
+[Service]
+Type=simple
+# Change 'username' to the actual user running the bot on your Debian server
+User=root
+# Change this to the absolute path of your bot's directory
+WorkingDirectory=/root/discord-bot/
+
+# If using fnm on Debian, you either need to provide the absolute path to node
+# or load the fnm environment. A robust way is to just use the absolute path to node:
+# ExecStart=/home/username/.local/share/fnm/aliases/default/bin/node src/bot/index.js
+# Or if using standard node:
+ExecStart=/usr/bin/node src/bot/index.js
+
+# Restart policy: automatically restart if the bot crashes
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+
+# Systemd limits and isolation (optional but recommended)
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

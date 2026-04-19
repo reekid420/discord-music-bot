@@ -1,0 +1,13 @@
+onlyBuiltDependencies:
+  - '@discordjs/opus'
+  - '@lng2004/node-datachannel'
+  - '@seydx/node-av-win32-x64-mingw'
+  - '@seydx/node-av-win32-x64-msvc'
+  - better-sqlite3
+  - canvas
+  - esbuild
+  - ffmpeg-static
+  - node-av
+  - sharp
+  - youtube-dl-exec
+  - zeromq
