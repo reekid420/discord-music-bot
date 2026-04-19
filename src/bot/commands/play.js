@@ -1,14 +1,14 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { QueryType } from 'discord-player';
 import { getMemberVoiceChannel } from '../utils/permissions.js';
-import { formatDuration } from '../utils/formatters.js';
+import { isYouTubePlaylistUrl, pickSearchEngine } from '../utils/urlHelpers.js';
 
 export const data = new SlashCommandBuilder()
   .setName('play')
   .setDescription('Search for a song or provide a link from YouTube, SoundCloud, Spotify, or TikTok')
   .addStringOption(opt =>
     opt.setName('query')
-      .setDescription('Search for a song or provide a URL from YouTube, SoundCloud, Spotify, or TikTok')
+      .setDescription('Search for a song, or paste a URL — YouTube playlists are also supported')
       .setRequired(true)
   );
 
@@ -22,6 +22,10 @@ export async function execute(interaction) {
 
   const query = interaction.options.getString('query', true);
   const player = interaction.client.player;
+
+  // For YouTube playlist URLs use AUTO so the full playlist loads.
+  // For plain text searches use YOUTUBE_SEARCH to prevent Mix auto-queue.
+  const searchEngine = pickSearchEngine(query, QueryType);
 
   try {
     const result = await player.play(vc, query, {
@@ -37,31 +41,35 @@ export async function execute(interaction) {
         leaveOnEndCooldown: 300_000,
       },
       requestedBy: interaction.user,
-      // Pin to a plain search so discord-player never resolves a query into a
-      // YouTube Mix/auto-playlist (which would dump 20+ related tracks into queue).
-      // URLs are still resolved correctly because the extractor checks for a URL
-      // first before falling back to the search engine.
-      searchEngine: QueryType.YOUTUBE_SEARCH,
+      searchEngine,
     });
 
-    const track = result.track;
-    const embed = new EmbedBuilder()
-      .setColor(0x7C3AED)
-      .setTitle('🎵 Added to Queue')
-      .setDescription(`[${track.title}](${track.url})`)
-      .addFields(
-        { name: 'Duration', value: track.duration || 'Live', inline: true },
-        { name: 'Requested by', value: interaction.user.tag, inline: true },
-        { name: 'Source', value: track.source || 'Unknown', inline: true },
-      )
-      .setThumbnail(track.thumbnail || null)
-      .setTimestamp();
+    const isPlaylistResult = !!(result.searchResult?.playlist);
+    const embed = new EmbedBuilder().setColor(0x7C3AED).setTimestamp();
 
-    if (result.searchResult?.playlist) {
-      embed.addFields({
-        name: 'Playlist',
-        value: `${result.searchResult.playlist.title} (${result.searchResult.tracks.length} tracks)`,
-      });
+    if (isPlaylistResult) {
+      const pl = result.searchResult.playlist;
+      const trackCount = result.searchResult.tracks.length;
+      embed
+        .setTitle('📋 Playlist Added to Queue')
+        .setDescription(`[${pl.title}](${pl.url || query})`)
+        .addFields(
+          { name: 'Tracks', value: `${trackCount}`, inline: true },
+          { name: 'Requested by', value: interaction.user.tag, inline: true },
+          { name: 'Source', value: pl.source || 'YouTube', inline: true },
+        )
+        .setThumbnail(pl.thumbnail || result.track?.thumbnail || null);
+    } else {
+      const track = result.track;
+      embed
+        .setTitle('🎵 Added to Queue')
+        .setDescription(`[${track.title}](${track.url})`)
+        .addFields(
+          { name: 'Duration', value: track.duration || 'Live', inline: true },
+          { name: 'Requested by', value: interaction.user.tag, inline: true },
+          { name: 'Source', value: track.source || 'Unknown', inline: true },
+        )
+        .setThumbnail(track.thumbnail || null);
     }
 
     await interaction.followUp({ embeds: [embed] });

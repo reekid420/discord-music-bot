@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { getMemberVoiceChannel } from '../utils/permissions.js';
 import { QueryType, useQueue } from 'discord-player';
+import { isYouTubePlaylistUrl } from '../utils/urlHelpers.js';
 import {
   createPlaylist, getUserPlaylists, getPlaylistByName, getPlaylistById,
   getPlaylistTracks, addPlaylistTrack, deletePlaylist, updatePlaylist,
@@ -85,11 +86,39 @@ async function handleAdd(interaction) {
   }
 
   if (query) {
-    // Search for the track to get metadata
     await interaction.deferReply();
     try {
       const player = interaction.client.player;
-      const result = await player.search(query, { requestedBy: interaction.user });
+
+      // ── YouTube playlist URL → bulk import all tracks ──
+      if (isYouTubePlaylistUrl(query)) {
+        const result = await player.search(query, { searchEngine: QueryType.AUTO });
+        if (!result || !result.tracks.length) {
+          return interaction.followUp({ content: '❌ No tracks found in that YouTube playlist.' });
+        }
+        let added = 0;
+        for (const track of result.tracks) {
+          try {
+            addPlaylistTrack(playlist.id, {
+              title: track.title,
+              url: track.url,
+              duration_ms: track.durationMS,
+              thumbnail: track.thumbnail,
+            });
+            added++;
+          } catch { /* skip duplicates */ }
+        }
+        const plName = result.playlist?.title || 'YouTube Playlist';
+        return interaction.followUp(
+          `✅ Imported **${added}** tracks from **${plName}** into playlist **${name}**.`
+        );
+      }
+
+      // ── Single track search ──
+      const result = await player.search(query, {
+        requestedBy: interaction.user,
+        searchEngine: QueryType.YOUTUBE_SEARCH,
+      });
       if (!result || !result.tracks.length) {
         return interaction.followUp({ content: '❌ No results found for that query.' });
       }
@@ -102,7 +131,7 @@ async function handleAdd(interaction) {
       });
       return interaction.followUp(`✅ Added **${track.title}** to playlist **${name}**.`);
     } catch (err) {
-      return interaction.followUp({ content: `❌ Failed to search: ${err.message}` });
+      return interaction.followUp({ content: `❌ Failed: ${err.message}` });
     }
   }
 

@@ -110,6 +110,15 @@ function initSocket() {
   });
 }
 
+// Detect a YouTube playlist/mix URL (has a `list` param on youtube.com)
+function isYouTubePlaylistUrl(query) {
+  try {
+    const u = new URL(query);
+    return (u.hostname === 'youtube.com' || u.hostname === 'www.youtube.com')
+           && u.searchParams.has('list');
+  } catch { return false; }
+}
+
 // ─── Search / Play Query ───
 async function playQuery(query) {
   if (!query || !query.trim()) return;
@@ -126,7 +135,7 @@ async function playQuery(query) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Unknown error');
-    return { success: true, title: data.track };
+    return { success: true, title: data.track, isPlaylist: data.isPlaylist, trackCount: data.trackCount };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -149,9 +158,13 @@ function setupSearchBar(inputId, btnId) {
     const result = await playQuery(query);
 
     if (result?.success) {
-      btn.textContent = '✅';
+      if (result.isPlaylist && result.trackCount) {
+        btn.textContent = `✅ ${result.trackCount} tracks`;
+      } else {
+        btn.textContent = '✅';
+      }
       input.value = '';
-      setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
+      setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2500);
     } else {
       btn.textContent = '❌';
       btn.title = result?.error || 'Failed';
@@ -536,7 +549,26 @@ $('#playlist-delete-btn').addEventListener('click', async () => {
     btn.textContent = '⏳';
 
     try {
-      // Resolve the query to a track via the search endpoint
+      // ── YouTube playlist URL → bulk import ──
+      if (isYouTubePlaylistUrl(query)) {
+        const importRes = await fetch(`/api/playlists/${currentPlaylistId}/import`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: query }),
+        });
+        const data = await importRes.json();
+        if (!importRes.ok) throw new Error(data.error || 'Import failed');
+
+        const label = data.playlistTitle ? `"${data.playlistTitle}"` : 'playlist';
+        btn.textContent = `✅ ${data.added} tracks`;
+        btn.title = `Imported ${data.added} of ${data.total} tracks from ${label}`;
+        input.value = '';
+        openPlaylistDetail(currentPlaylistId);
+        setTimeout(() => { btn.textContent = originalText; btn.disabled = false; btn.title = ''; }, 3000);
+        return;
+      }
+
+      // ── Single track search ──
       const searchRes = await fetch(`/api/player/search?query=${encodeURIComponent(query)}`);
       if (!searchRes.ok) throw new Error('Search failed');
       const { tracks } = await searchRes.json();
@@ -557,7 +589,6 @@ $('#playlist-delete-btn').addEventListener('click', async () => {
 
       btn.textContent = '✅';
       input.value = '';
-      // Refresh the track list
       openPlaylistDetail(currentPlaylistId);
       setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
     } catch (err) {

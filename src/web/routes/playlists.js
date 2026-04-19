@@ -126,5 +126,45 @@ export function playlistRoutes(client) {
     res.json({ success: true, added, total: tracks.length });
   });
 
+  // POST /api/playlists/:id/import — bulk-import tracks from a YouTube playlist URL
+  // Body: { url: string }
+  router.post('/:id/import', async (req, res) => {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ error: 'url required' });
+
+    const playlist = getPlaylistById(parseInt(req.params.id));
+    if (!playlist) return res.status(404).json({ error: 'Playlist not found' });
+
+    try {
+      const result = await client.player.search(url, { searchEngine: QueryType.AUTO });
+      if (!result || !result.tracks.length) {
+        return res.status(400).json({ error: 'No tracks found at that URL' });
+      }
+
+      let added = 0;
+      for (const track of result.tracks) {
+        try {
+          addPlaylistTrack(playlist.id, {
+            title: track.title,
+            url: track.url,
+            duration_ms: track.durationMS,
+            thumbnail: track.thumbnail,
+          });
+          added++;
+        } catch { /* skip duplicates / constraint errors */ }
+      }
+
+      res.json({
+        success: true,
+        added,
+        total: result.tracks.length,
+        playlistTitle: result.playlist?.title || null,
+      });
+    } catch (err) {
+      console.error('[Playlist Import]', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   return router;
 }

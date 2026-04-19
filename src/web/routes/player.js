@@ -2,6 +2,19 @@ import { Router } from 'express';
 import { useQueue, QueryType } from 'discord-player';
 import { emitPlayerState } from '../server.js';
 
+// Detect YouTube playlist URLs to choose AUTO vs YOUTUBE_SEARCH
+function pickSearchEngine(query) {
+  try {
+    const u = new URL(query);
+    const isYtPlaylist =
+      (u.hostname === 'youtube.com' || u.hostname === 'www.youtube.com') &&
+      u.searchParams.has('list');
+    if (isYtPlaylist) return QueryType.AUTO;
+  } catch { /* not a URL */ }
+  if (/^https?:\/\//i.test(query)) return QueryType.AUTO;
+  return QueryType.YOUTUBE_SEARCH;
+}
+
 /**
  * Player control routes.
  * @param {import('discord.js').Client} client
@@ -102,11 +115,17 @@ export function playerRoutes(client, io) {
           leaveOnEmptyCooldown: 300_000,
           leaveOnEnd: false,
         },
-        // Pin to plain search — prevents discord-player from resolving
-        // a text query into a YouTube Mix and dumping 20+ tracks.
-        searchEngine: QueryType.YOUTUBE_SEARCH,
+        searchEngine: pickSearchEngine(query),
       });
-      res.json({ success: true, track: result.track.title });
+
+      const isPlaylist = !!(result.searchResult?.playlist);
+      if (isPlaylist) {
+        const pl = result.searchResult.playlist;
+        const count = result.searchResult.tracks.length;
+        res.json({ success: true, track: pl.title, isPlaylist: true, trackCount: count });
+      } else {
+        res.json({ success: true, track: result.track.title, isPlaylist: false });
+      }
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
