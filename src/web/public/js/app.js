@@ -347,6 +347,26 @@ $('#ctrl-stop').addEventListener('click', async () => {
   renderQueueFromState([]);
 });
 
+$('#ctrl-loop').addEventListener('click', async () => {
+  if (!currentGuildId) return;
+  const btn = $('#ctrl-loop');
+  const current = parseInt(btn.dataset.mode || '0');
+  const next = (current + 1) % 3; // 0 = off, 1 = track, 2 = queue
+  try {
+    await fetch('/api/player/loop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ guild: currentGuildId, mode: next }),
+    });
+    const loopLabels = { 0: '➡️', 1: '🔂', 2: '🔁' };
+    btn.textContent = loopLabels[next];
+    btn.dataset.mode = next;
+    playerState.repeatMode = next;
+  } catch (err) {
+    console.error('Loop toggle failed:', err);
+  }
+});
+
 $('#ctrl-volume').addEventListener('input', (e) => {
   $('#volume-label').textContent = `${e.target.value}%`;
 });

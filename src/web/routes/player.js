@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { useQueue } from 'discord-player';
+import { useQueue, QueryType } from 'discord-player';
 import { emitPlayerState } from '../server.js';
 
 /**
@@ -79,6 +79,9 @@ export function playerRoutes(client, io) {
           leaveOnEmptyCooldown: 300_000,
           leaveOnEnd: false,
         },
+        // Pin to plain search — prevents discord-player from resolving
+        // a text query into a YouTube Mix and dumping 20+ tracks.
+        searchEngine: QueryType.YOUTUBE_SEARCH,
       });
       res.json({ success: true, track: result.track.title });
     } catch (err) {
@@ -113,6 +116,22 @@ export function playerRoutes(client, io) {
     queue.node.setPaused(false);
     emitPlayerState(client, io, guildId);
     res.json({ success: true });
+  });
+
+  // POST /api/player/loop — { guild, mode: 0|1|2 }
+  router.post('/loop', (req, res) => {
+    const { guild: guildId, mode } = req.body;
+    const queue = client.player?.queues?.get(guildId);
+    if (!queue) return res.status(404).json({ error: 'No active queue' });
+
+    // RepeatMode: 0 = Off, 1 = Track, 2 = Queue
+    const parsed = parseInt(mode);
+    if (isNaN(parsed) || parsed < 0 || parsed > 2) {
+      return res.status(400).json({ error: 'mode must be 0, 1, or 2' });
+    }
+    queue.setRepeatMode(parsed);
+    emitPlayerState(client, io, guildId);
+    res.json({ success: true, mode: parsed });
   });
 
   // POST /api/player/stop

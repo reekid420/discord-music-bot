@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { QueryType } from 'discord-player';
 import {
   getAllPlaylists, getPlaylistById, getPlaylistTracks,
   createPlaylist, updatePlaylist, deletePlaylist,
@@ -99,6 +100,9 @@ export function playlistRoutes(client) {
     const guild = client.guilds.cache.get(guildId);
     if (!guild) return res.status(404).json({ error: 'Guild not found' });
 
+    // Refresh member cache so botMember.voice.channel is accurate
+    await guild.members.fetch().catch(() => {});
+
     const botMember = guild.members.cache.get(client.user.id);
     const vc = botMember?.voice?.channel
       || guild.channels.cache.find(c => c.isVoiceBased() && c.members.filter(m => !m.user.bot).size > 0);
@@ -110,6 +114,8 @@ export function playlistRoutes(client) {
       try {
         await client.player.play(vc, t.url, {
           nodeOptions: { metadata: { guild }, volume: 80 },
+          // Treat stored URLs as direct links; avoids keyword-search Mix resolution
+          searchEngine: QueryType.AUTO,
         });
         added++;
       } catch (err) {
