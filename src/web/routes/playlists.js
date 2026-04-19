@@ -33,13 +33,17 @@ export function playlistRoutes(client) {
     res.json({ ...playlist, tracks });
   });
 
-  // POST /api/playlists — create { name, ownerId, guildId? }
+  // POST /api/playlists — create { name, ownerId, guildId?, is_public? }
   router.post('/', (req, res) => {
-    const { name, ownerId, guildId } = req.body;
+    const { name, ownerId, guildId, is_public } = req.body;
     if (!name || !ownerId) return res.status(400).json({ error: 'name and ownerId required' });
 
     try {
-      const playlist = createPlaylist(ownerId, name, guildId || null);
+      let playlist = createPlaylist(ownerId, name, guildId || null);
+      // Apply is_public if explicitly passed (default in DB is 0/false)
+      if (is_public !== undefined) {
+        playlist = updatePlaylist(playlist.id, { is_public: !!is_public });
+      }
       res.json(playlist);
     } catch (err) {
       if (err.message.includes('UNIQUE')) {

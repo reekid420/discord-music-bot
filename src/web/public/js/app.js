@@ -621,7 +621,8 @@ $('#playlist-save-btn').addEventListener('click', async () => {
     await fetch('/api/playlists', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, ownerId: 'dashboard', guildId: currentGuildId }),
+      // is_public=true so Discord slash commands can discover web-created playlists
+      body: JSON.stringify({ name, ownerId: 'dashboard', guildId: currentGuildId, is_public: true }),
     });
     $('#playlist-create-form').hidden = true;
     $('#playlist-name-input').value = '';

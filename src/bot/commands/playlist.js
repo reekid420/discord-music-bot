@@ -1,9 +1,10 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { getMemberVoiceChannel } from '../utils/permissions.js';
+import { getMemberVoiceChannel, isDJ } from '../utils/permissions.js';
 import { QueryType, useQueue } from 'discord-player';
 import { isYouTubePlaylistUrl } from '../utils/urlHelpers.js';
 import {
-  createPlaylist, getUserPlaylists, getPlaylistByName, getPlaylistById,
+  createPlaylist, getUserPlaylists, getAllPlaylists,
+  getPlaylistByName, getPlaylistByNameGlobal, getPlaylistById,
   getPlaylistTracks, addPlaylistTrack, deletePlaylist, updatePlaylist,
 } from '../../db/database.js';
 import { truncate } from '../utils/formatters.js';
@@ -80,7 +81,13 @@ async function handleAdd(interaction) {
   const name = interaction.options.getString('name', true).trim();
   const query = interaction.options.getString('query');
 
-  const playlist = getPlaylistByName(interaction.user.id, name);
+  let playlist = getPlaylistByName(interaction.user.id, name);
+
+  // Admins/DJs can add to any playlist (including web-created ones)
+  if (!playlist && isDJ(interaction.member)) {
+    playlist = getPlaylistByNameGlobal(name);
+  }
+
   if (!playlist) {
     return interaction.reply({ content: `❌ You don't have a playlist called **${name}**.`, ephemeral: true });
   }
@@ -160,12 +167,17 @@ async function handlePlay(interaction) {
   const name = interaction.options.getString('name', true).trim();
   let playlist = getPlaylistByName(interaction.user.id, name);
 
-  // Check public playlists if not found in user's own
+  // Fallback 1: public playlists (any owner)
   if (!playlist) {
     const { getDb } = await import('../../db/database.js');
     playlist = getDb().prepare(
       'SELECT * FROM playlists WHERE name = ? AND is_public = 1'
     ).get(name);
+  }
+
+  // Fallback 2: admins/DJs can play ANY playlist (including web-created ones)
+  if (!playlist && isDJ(interaction.member)) {
+    playlist = getPlaylistByNameGlobal(name);
   }
 
   if (!playlist) {
@@ -207,20 +219,26 @@ async function handlePlay(interaction) {
 }
 
 async function handleList(interaction) {
-  const playlists = getUserPlaylists(interaction.user.id);
+  const isAdmin = isDJ(interaction.member);
+
+  // Admins/DJs see all playlists across all owners (including web-created ones)
+  const playlists = isAdmin
+    ? getAllPlaylists()
+    : getUserPlaylists(interaction.user.id);
 
   if (playlists.length === 0) {
-    return interaction.reply({ content: 'You have no playlists yet. Create one with `/playlist create`.', ephemeral: true });
+    return interaction.reply({ content: 'No playlists yet. Create one with `/playlist create`.', ephemeral: true });
   }
 
   const embed = new EmbedBuilder()
     .setColor(0x7C3AED)
-    .setTitle('📋 Your Playlists')
+    .setTitle(isAdmin ? '📋 All Playlists' : '📋 Your Playlists')
     .setDescription(
       playlists.map((p, i) => {
         const tracks = getPlaylistTracks(p.id);
         const pub = p.is_public ? '🌐' : '🔒';
-        return `**${i + 1}.** ${pub} ${p.name} — ${tracks.length} tracks`;
+        const owner = p.owner_id === interaction.user.id ? '' : ` *(by ${p.owner_id === 'dashboard' ? 'web dashboard' : `<@${p.owner_id}>`})*`;
+        return `**${i + 1}.** ${pub} ${p.name}${owner} — ${tracks.length} tracks`;
       }).join('\n')
     )
     .setTimestamp();
@@ -237,6 +255,11 @@ async function handleView(interaction) {
     playlist = getDb().prepare(
       'SELECT * FROM playlists WHERE name = ? AND is_public = 1'
     ).get(name);
+  }
+
+  // Admins/DJs can view any playlist
+  if (!playlist && isDJ(interaction.member)) {
+    playlist = getPlaylistByNameGlobal(name);
   }
 
   if (!playlist) {

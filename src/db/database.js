@@ -82,6 +82,14 @@ export function getPlaylistByName(ownerId, name) {
   return getDb().prepare('SELECT * FROM playlists WHERE owner_id = ? AND name = ?').get(ownerId, name);
 }
 
+/**
+ * Find any playlist by name regardless of owner — used for admin/DJ access.
+ * Returns the first match (prefers exact case).
+ */
+export function getPlaylistByNameGlobal(name) {
+  return getDb().prepare('SELECT * FROM playlists WHERE name = ? ORDER BY created_at DESC').get(name);
+}
+
 export function getPlaylistById(id) {
   return getDb().prepare('SELECT * FROM playlists WHERE id = ?').get(id);
 }
