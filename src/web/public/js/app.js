@@ -249,6 +249,99 @@ async function fetchPlayerState() {
   }
 }
 
+// ─── Scrubber helpers ───
+let scrubberDragging = false;
+
+/** Set both the fill bar and the floating thumb to `pct` (0-100). */
+function setScrubberPct(pct) {
+  const clamp = Math.max(0, Math.min(100, pct));
+  $('#np-progress-bar').style.width = `${clamp}%`;
+  $('#np-scrubber-thumb').style.left = `${clamp}%`;
+  const scrubber = $('#np-scrubber');
+  if (scrubber) scrubber.setAttribute('aria-valuenow', Math.round(clamp));
+}
+
+/** Fire a seek request and immediately sync local progress state. */
+async function seekTo(ms) {
+  if (!currentGuildId || !playerState.active) return;
+  const total = playerState.progress?.total || 0;
+  if (!total) return;
+  const clamped = Math.max(0, Math.min(ms, total));
+  try {
+    await fetch('/api/player/seek', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ guild: currentGuildId, position: clamped }),
+    });
+    // Sync local tracking
+    if (playerState.progress) playerState.progress.current = clamped;
+    startProgressTracking(clamped, total, playerState.paused);
+    setScrubberPct(total > 0 ? (clamped / total * 100) : 0);
+    $('#np-current-time').textContent = formatMs(clamped);
+  } catch (err) {
+    console.error('[Seek]', err);
+  }
+}
+
+// ─── Scrubber click / drag ───
+(function initScrubber() {
+  const scrubber = $('#np-scrubber');
+  if (!scrubber) return;
+
+  function pctFromEvent(e) {
+    const rect = scrubber.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  }
+
+  function onDragStart(e) {
+    if (!playerState.active) return;
+    e.preventDefault();
+    scrubberDragging = true;
+    scrubber.classList.add('dragging');
+    stopProgressTracking();       // pause local ticker while dragging
+    onDragMove(e);
+  }
+
+  function onDragMove(e) {
+    if (!scrubberDragging) return;
+    e.preventDefault();
+    const pct = pctFromEvent(e) * 100;
+    setScrubberPct(pct);
+    const total = playerState.progress?.total || 0;
+    if (total) $('#np-current-time').textContent = formatMs(pct / 100 * total);
+  }
+
+  function onDragEnd(e) {
+    if (!scrubberDragging) return;
+    scrubberDragging = false;
+    scrubber.classList.remove('dragging');
+    const pct = pctFromEvent(e);
+    const total = playerState.progress?.total || 0;
+    seekTo(Math.round(pct * total));
+  }
+
+  scrubber.addEventListener('mousedown', onDragStart);
+  scrubber.addEventListener('touchstart', onDragStart, { passive: false });
+  window.addEventListener('mousemove', onDragMove);
+  window.addEventListener('touchmove', onDragMove, { passive: false });
+  window.addEventListener('mouseup', onDragEnd);
+  window.addEventListener('touchend', onDragEnd);
+
+  // Keyboard left/right (5 s) while the scrubber is focused
+  scrubber.addEventListener('keydown', (e) => {
+    const step = 5000;
+    const total = playerState.progress?.total || 0;
+    const cur   = playerState.progress?.current || 0;
+    if (e.key === 'ArrowRight') seekTo(cur + step);
+    else if (e.key === 'ArrowLeft') seekTo(Math.max(0, cur - step));
+    else if (e.key === 'Home') seekTo(0);
+    else if (e.key === 'End') seekTo(total);
+    else return;
+    e.preventDefault();
+  });
+})();
+
 function renderNowPlaying() {
   const { active, currentTrack, progress, volume, paused, repeatMode } = playerState;
 
@@ -258,7 +351,7 @@ function renderNowPlaying() {
     $('#np-requested').textContent = '';
     $('#np-thumbnail').classList.remove('visible');
     $('#np-placeholder').classList.remove('hidden');
-    $('#np-progress-bar').style.width = '0%';
+    setScrubberPct(0);
     $('#np-current-time').textContent = '0:00';
     $('#np-total-time').textContent = '0:00';
     $('#ctrl-playpause').textContent = '▶';
@@ -281,7 +374,7 @@ function renderNowPlaying() {
 
   if (progress) {
     const pct = progress.total > 0 ? (progress.current / progress.total * 100) : 0;
-    $('#np-progress-bar').style.width = `${pct}%`;
+    setScrubberPct(pct);
     $('#np-current-time').textContent = progress.currentLabel || '0:00';
     $('#np-total-time').textContent = progress.totalLabel || '0:00';
     startProgressTracking(progress.current, progress.total, paused);
@@ -304,11 +397,13 @@ function startProgressTracking(currentMs, totalMs, paused) {
 
   let elapsed = currentMs;
   progressInterval = setInterval(() => {
+    if (scrubberDragging) return;  // don't fight the user while they're dragging
     elapsed += 1000;
     if (elapsed > totalMs) elapsed = totalMs;
     const pct = (elapsed / totalMs * 100);
-    $('#np-progress-bar').style.width = `${pct}%`;
+    setScrubberPct(pct);
     $('#np-current-time').textContent = formatMs(elapsed);
+    if (playerState.progress) playerState.progress.current = elapsed;
   }, 1000);
 }
 
@@ -357,6 +452,18 @@ $('#ctrl-stop').addEventListener('click', async () => {
   playerState = { active: false };
   renderNowPlaying();
   renderQueueFromState([]);
+});
+
+// ─── Fast-forward / Rewind (10 s) ───
+const SEEK_STEP_MS = 10_000;
+$('#ctrl-rewind').addEventListener('click', () => {
+  const cur = playerState.progress?.current || 0;
+  seekTo(Math.max(0, cur - SEEK_STEP_MS));
+});
+$('#ctrl-forward').addEventListener('click', () => {
+  const cur   = playerState.progress?.current || 0;
+  const total = playerState.progress?.total   || 0;
+  seekTo(Math.min(cur + SEEK_STEP_MS, total));
 });
 
 $('#ctrl-loop').addEventListener('click', async () => {

@@ -89,10 +89,9 @@ export function playerRoutes(client, io) {
     const guild = client.guilds.cache.get(guildId);
     if (!guild) return res.status(404).json({ error: 'Guild not found' });
 
-    // Fetch members so the cache is fresh
-    await guild.members.fetch().catch(() => {});
-
-    const botMember = guild.members.cache.get(client.user.id);
+    // Only fetch the bot member if it's not already cached — avoids a full guild member fetch
+    const botMember = guild.members.cache.get(client.user.id)
+      || await guild.members.fetch(client.user.id).catch(() => null);
 
     // Prefer channel bot is already in, else find first channel with real (non-bot) members
     const vc = botMember?.voice?.channel
@@ -126,6 +125,21 @@ export function playerRoutes(client, io) {
       } else {
         res.json({ success: true, track: result.track.title, isPlaylist: false });
       }
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/player/seek — { guild, position: ms }
+  router.post('/seek', async (req, res) => {
+    const { guild: guildId, position } = req.body;
+    const queue = client.player?.queues?.get(guildId);
+    if (!queue || !queue.currentTrack) return res.status(404).json({ error: 'No active track' });
+
+    const ms = Math.max(0, parseInt(position) || 0);
+    try {
+      await queue.node.seek(ms);
+      res.json({ success: true, position: ms });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

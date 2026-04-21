@@ -104,10 +104,10 @@ export function playlistRoutes(client) {
     const guild = client.guilds.cache.get(guildId);
     if (!guild) return res.status(404).json({ error: 'Guild not found' });
 
-    // Refresh member cache so botMember.voice.channel is accurate
-    await guild.members.fetch().catch(() => {});
+    // Only fetch the bot member if it's not already cached — avoids a full guild member fetch
+    const botMember = guild.members.cache.get(client.user.id)
+      || await guild.members.fetch(client.user.id).catch(() => null);
 
-    const botMember = guild.members.cache.get(client.user.id);
     const vc = botMember?.voice?.channel
       || guild.channels.cache.find(c => c.isVoiceBased() && c.members.filter(m => !m.user.bot).size > 0);
 

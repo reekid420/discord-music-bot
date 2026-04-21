@@ -17,10 +17,14 @@ Access at `http://<server-ip>:3000` (port configurable via `DASHBOARD_PORT`).
 ## Views
 
 ### Now Playing
-Large album art, track title and artist, a text progress bar, and playback controls:
+Large album art, track title and artist, an interactive seek scrubber, and playback controls:
+- **Seek scrubber** — click anywhere on the progress bar to jump, or click-and-drag for fine-grained control
+  - Hovering reveals a drag handle; the bar grows slightly to make it easier to grab
+  - Keyboard accessible: focus the bar and use ← / → (5 s steps), Home, End
+- **⏪ Rewind / ⏩ Fast-forward** — jump back or forward 10 seconds
 - Play / Pause / Skip / Stop buttons
+- **Loop mode toggle** (off / track / queue)
 - Volume slider (1–100)
-- Loop mode toggle (off / track / queue)
 
 ### Queue
 Ordered list of upcoming tracks. Each row shows position, title, duration, and requester. Actions:
@@ -97,6 +101,7 @@ All endpoints require the session cookie unless noted.
 |---|---|---|---|
 | `GET` | `/api/player` | `?guild=<id>` | Full player state |
 | `POST` | `/api/player/play` | `{ guild, query }` | Play by URL or search |
+| `POST` | `/api/player/seek` | `{ guild, position }` | Seek to position in ms |
 | `POST` | `/api/player/skip` | `{ guild }` | Force-skip |
 | `POST` | `/api/player/pause` | `{ guild }` | Pause |
 | `POST` | `/api/player/resume` | `{ guild }` | Resume |

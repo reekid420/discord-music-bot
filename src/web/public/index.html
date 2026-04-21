@@ -89,8 +89,11 @@
             <p id="np-requested" class="player-requested"></p>
           </div>
           <div class="player-progress">
-            <div class="progress-bar-container">
-              <div id="np-progress-bar" class="progress-bar-fill"></div>
+            <div id="np-scrubber" class="progress-scrubber" role="slider" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0">
+              <div class="progress-scrubber-track">
+                <div id="np-progress-bar" class="progress-bar-fill"></div>
+              </div>
+              <div id="np-scrubber-thumb" class="progress-scrubber-thumb"></div>
             </div>
             <div class="progress-labels">
               <span id="np-current-time">0:00</span>
@@ -99,10 +102,13 @@
           </div>
           <div class="player-controls">
             <button id="ctrl-stop" class="ctrl-btn" title="Stop">⏹</button>
-            <button id="ctrl-prev" class="ctrl-btn" title="Previous" disabled>⏮</button>
+            <button id="ctrl-rewind" class="ctrl-btn" title="Rewind 10s">⏪</button>
             <button id="ctrl-playpause" class="ctrl-btn ctrl-main" title="Play/Pause">▶</button>
+            <button id="ctrl-forward" class="ctrl-btn" title="Fast-forward 10s">⏩</button>
             <button id="ctrl-skip" class="ctrl-btn" title="Skip">⏭</button>
-            <button id="ctrl-loop" class="ctrl-btn" title="Loop" data-mode="0">➡️</button>
+          </div>
+          <div class="player-controls-row2">
+            <button id="ctrl-loop" class="ctrl-btn ctrl-btn-sm" title="Loop" data-mode="0">➡️</button>
           </div>
           <div class="player-volume">
             <span class="volume-icon">🔊</span>
