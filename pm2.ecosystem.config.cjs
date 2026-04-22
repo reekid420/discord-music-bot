@@ -1,6 +1,6 @@
 module.exports = {
   apps: [{
-    name: 'groove-bot',
+    name: 'dj-miyabi',
     script: 'src/bot/index.js',
     watch: false,
     env: {

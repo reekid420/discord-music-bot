@@ -44,10 +44,10 @@ pm2 save
 ### Common PM2 commands
 
 ```bash
-pm2 logs groove-bot          # Tail logs (stdout + stderr)
-pm2 restart groove-bot       # Restart (e.g. after .env change)
-pm2 stop groove-bot          # Graceful stop
-pm2 delete groove-bot        # Remove from PM2 process list
+pm2 logs dj-miyabi          # Tail logs (stdout + stderr)
+pm2 restart dj-miyabi       # Restart (e.g. after .env change)
+pm2 stop dj-miyabi          # Graceful stop
+pm2 delete dj-miyabi        # Remove from PM2 process list
 pm2 monit                    # Real-time CPU / memory dashboard
 ```
 
@@ -77,11 +77,11 @@ Before installing, edit the file and set:
 ```bash
 sudo cp groove-bot.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable groove-bot    # Auto-start on boot
-sudo systemctl start groove-bot     # Start now
+sudo systemctl enable dj-miyabi    # Auto-start on boot
+sudo systemctl start dj-miyabi     # Start now
 
-sudo systemctl status groove-bot    # Check if running
-sudo journalctl -u groove-bot -f    # Follow logs
+sudo systemctl status dj-miyabi    # Check if running
+sudo journalctl -u dj-miyabi -f    # Follow logs
 ```
 
 ---

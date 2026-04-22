@@ -1,9 +1,9 @@
-# Groove Bot — Setup Guide
+# DJ Miyabi — Setup Guide
 
 ## 1. Create a Discord Bot Application
 
 1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
-2. Click **"New Application"** → name it (e.g. "Groove") → **Create**
+2. Click **"New Application"** → name it (e.g. "DJ Miyabi") → **Create**
 3. Navigate to the **"Bot"** tab in the sidebar
 4. Click **"Reset Token"** → copy the token → **save it securely** (this is your `DISCORD_TOKEN`)
 5. Under **"Privileged Gateway Intents"**, enable:
@@ -102,11 +102,11 @@ pm2 startup systemd
 pm2 save
 
 # View logs
-pm2 logs groove-bot
+pm2 logs dj-miyabi
 
 # Restart / Stop
-pm2 restart groove-bot
-pm2 stop groove-bot
+pm2 restart dj-miyabi
+pm2 stop dj-miyabi
 ```
 
 ## 9. Access the Dashboard

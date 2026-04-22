@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════
-   Groove Dashboard — Client-Side Application
+   DJ Miyabi Dashboard — Client-Side Application
    ═══════════════════════════════════════════════ */
 
 // ─── State ───

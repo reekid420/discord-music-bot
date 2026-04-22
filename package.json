@@ -1,7 +1,7 @@
 {
-  "name": "groove-bot",
+  "name": "dj-miyabi",
   "version": "1.0.0",
-  "description": "Discord music bot with web dashboard",
+  "description": "DJ Miyabi — Discord music bot with web dashboard",
   "main": "src/bot/index.js",
   "type": "module",
   "scripts": {

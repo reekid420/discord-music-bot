@@ -19,7 +19,7 @@ for (const key of requiredEnv) {
 }
 
 // ─── Initialize database ───
-const dbPath = process.env.DB_PATH || './data/groove.db';
+const dbPath = process.env.DB_PATH || './data/miyabi.db';
 initDatabase(dbPath);
 
 // ─── Create Discord client ───
@@ -70,7 +70,7 @@ async function loadEvents() {
 
 // ─── Boot sequence ───
 async function main() {
-  console.log('[Boot] Starting Groove bot...');
+  console.log('[Boot] Starting DJ Miyabi bot...');
 
   // Set up discord-player
   const player = await setupPlayer(client);

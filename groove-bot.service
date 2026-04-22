@@ -1,5 +1,5 @@
 [Unit]
-Description=Groove Music Bot
+Description=DJ Miyabi Music Bot
 After=network.target
 
 [Service]

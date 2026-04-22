@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { createSession, getSession, deleteSession, cleanExpiredSessions } from '../../db/database.js';
 
 const SESSION_DURATION = 24 * 60 * 60; // 24 hours in seconds
-const COOKIE_NAME = 'groove_session';
+const COOKIE_NAME = 'miyabi_session';
 
 /**
  * Login route handler. Checks password, creates session.

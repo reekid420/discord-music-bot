@@ -97,7 +97,7 @@ export async function execute(interaction) {
 
   // ─── Build yt-dlp download options ────────────────────────────
   const uid         = randomUUID();
-  const tmpBase     = join(tmpdir(), `groove-extract-${uid}`);
+  const tmpBase     = join(tmpdir(), `miyabi-extract-${uid}`);
   const outTemplate = `${tmpBase}.%(ext)s`;
 
   /** @type {Record<string, any>} */
@@ -174,7 +174,7 @@ export async function execute(interaction) {
   try {
     const dmChannel = await interaction.user.createDM();
     await dmChannel.send({
-      content: `🎵 Here's your extracted track from Groove!\n**${displayTitle}** — \`${format.toUpperCase()}\``,
+      content: `🎵 Here's your extracted track from DJ Miyabi!\n**${displayTitle}** — \`${format.toUpperCase()}\``,
       files: [{ attachment: filePath, name: attachmentName }],
     });
   } catch (err) {

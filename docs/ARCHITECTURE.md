@@ -1,6 +1,6 @@
 # Architecture
 
-Technical overview of the Groove bot codebase — structure, design decisions, database schema, and developer notes.
+Technical overview of the DJ Miyabi codebase — structure, design decisions, database schema, and developer notes.
 
 ---
 
@@ -47,7 +47,7 @@ discord-bot/
 │   ├── bot/
 │   │   ├── index.js                # Entry point: env validation, DB init, player setup, boot
 │   │   ├── deploy-commands.js      # One-shot: registers slash commands with Discord API
-│   │   ├── commands/               # One file per slash command (14 total)
+│   │   ├── commands/               # One file per slash command (15 total)
 │   │   ├── events/
 │   │   │   ├── ready.js            # Sets bot activity status on login
 │   │   │   ├── interactionCreate.js# Dispatches slash commands to handlers

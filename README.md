@@ -1,4 +1,4 @@
-# 🎵 Groove — Discord Music Bot
+# 🎵 DJ Miyabi — Discord Music Bot
 
 A self-hosted Discord music bot with a real-time web dashboard. Supports YouTube, SoundCloud, Spotify (bridged), TikTok, and local file uploads.
 
