@@ -16,7 +16,7 @@ Dashboard: `http://localhost:3000`
 ## Key Features
 
 - **Multi-source playback** — YouTube (yt-dlp), SoundCloud, Spotify bridge, TikTok, uploaded files
-- **14 slash commands** — play, skip, queue, vote-skip, playlists, and more
+- **15 slash commands** — play, skip, queue, vote-skip, playlists, extract, and more
 - **DJ role system** — configurable per-guild role restricts sensitive commands
 - **Smart vote-skip** — 51% democratic threshold with full edge case handling
 - **Web dashboard** — live queue, controls, playlist management, and file uploads via browser

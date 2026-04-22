@@ -1,6 +1,6 @@
 # Commands Reference
 
-All 14 slash commands, their permission requirements, and usage notes.
+All 15 slash commands, their permission requirements, and usage notes.
 
 ## Permission Tiers
 
@@ -134,6 +134,42 @@ Configures bot behaviour for the current server. Changes persist in the database
 /settings auto_leave 120
 /settings default_volume 70
 /settings dj_role none
+```
+
+---
+
+## Utility
+
+### `/extract [url] [format]`
+**Who:** Anyone
+
+Downloads a track from any supported source and sends it directly to your DMs as a file.
+
+| Option | Required | Description |
+|---|---|---|
+| `url` | No | YouTube, SoundCloud, Spotify, TikTok, or any yt-dlp-supported URL. If omitted, extracts the currently-playing track. |
+| `format` | No (default: `mp4`) | Output container — see table below. |
+
+**Supported formats:**
+
+| Format | Type | Notes |
+|---|---|---|
+| `mp4` | Video | Default |
+| `mp3` | Audio | |
+| `wav` | Audio | Lossless, large |
+| `flac` | Audio | Lossless, compressed |
+| `aac` | Audio | |
+| `ogg` | Audio | |
+| `webm` | Video | |
+| `mkv` | Video | |
+
+> **Note:** Discord's 25 MB upload limit applies to non-boosted servers. For long videos, use an audio format (`mp3`, `aac`, or `flac`) to stay under the limit.
+
+**Examples:**
+```
+/extract url:https://www.youtube.com/watch?v=dQw4w9WgXcQ
+/extract url:https://www.tiktok.com/@user/video/123 format:mp3
+/extract format:flac
 ```
 
 ---
