@@ -7,6 +7,7 @@ export async function execute(interaction) {
   const command = interaction.client.commands.get(interaction.commandName);
   if (!command) {
     console.warn(`[Interaction] Unknown command: ${interaction.commandName}`);
+    await interaction.reply({ content: '❌ Unknown command.', ephemeral: true });
     return;
   }
 

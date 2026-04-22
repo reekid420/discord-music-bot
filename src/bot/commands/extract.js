@@ -1,17 +1,17 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { useQueue } from 'discord-player';
 import youtubeDl from 'youtube-dl-exec';
-import { createWriteStream, unlink, stat } from 'fs';
+import { unlink, stat } from 'fs';
+import { readdir } from 'fs/promises';
 import { promisify } from 'util';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
 const unlinkAsync = promisify(unlink);
-const statAsync = promisify(stat);
+const statAsync   = promisify(stat);
 
-// Discord's default upload limit is 25 MB (non-boosted servers).
-// Warn the user rather than failing silently.
+// Discord's default upload limit for non-boosted servers.
 const DISCORD_MAX_BYTES = 25 * 1024 * 1024;
 
 const FORMAT_CHOICES = [
@@ -30,7 +30,7 @@ export const data = new SlashCommandBuilder()
   .setDescription('Download a track and send it to your DMs')
   .addStringOption(opt =>
     opt.setName('url')
-      .setDescription('Link to extract (YouTube, TikTok, Spotify, SoundCloud…); leave blank to extract what\'s playing')
+      .setDescription("Link to extract (YouTube, TikTok, Spotify, SoundCloud…); leave blank to extract what's playing")
       .setRequired(false)
   )
   .addStringOption(opt =>
@@ -41,15 +41,17 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
-  // Defer ephemerally — yt-dlp can take a while
-  await interaction.deferReply({ ephemeral: true });
-
   const url    = interaction.options.getString('url') || null;
   const format = interaction.options.getString('format') || 'mp4';
 
+  console.log(`[Extract] Request from ${interaction.user.tag} — url=${url ?? '(current track)'} format=${format}`);
+
+  // Defer ephemerally — yt-dlp can take 10–30 s
+  await interaction.deferReply({ ephemeral: true });
+
   // ─── Resolve URL ──────────────────────────────────────────────
-  let trackUrl    = url;
-  let trackTitle  = null;
+  let trackUrl   = url;
+  let trackTitle = null;
 
   if (!trackUrl) {
     const queue = useQueue(interaction.guildId);
@@ -60,17 +62,18 @@ export async function execute(interaction) {
     }
     trackUrl   = queue.currentTrack.url;
     trackTitle = queue.currentTrack.title;
+    console.log(`[Extract] Using current track: ${trackTitle} — ${trackUrl}`);
   }
 
   // ─── Build yt-dlp options ─────────────────────────────────────
-  const isAudio = ['mp3', 'wav', 'flac', 'aac', 'ogg'].includes(format);
-  const uid      = randomUUID();
-  // Use a temp path without extension — yt-dlp will add it
-  const tmpBase  = join(tmpdir(), `groove-extract-${uid}`);
+  const isAudio     = ['mp3', 'wav', 'flac', 'aac', 'ogg'].includes(format);
+  const uid         = randomUUID();
+  const tmpBase     = join(tmpdir(), `groove-extract-${uid}`);
   const outTemplate = `${tmpBase}.%(ext)s`;
 
+  /** @type {Record<string, any>} */
   const ytdlpOpts = {
-    output: outTemplate,
+    output:     outTemplate,
     noPlaylist: true,
     noWarnings: true,
   };
@@ -80,43 +83,42 @@ export async function execute(interaction) {
     ytdlpOpts.audioFormat  = format === 'ogg' ? 'vorbis' : format;
     ytdlpOpts.audioQuality = 0; // best
   } else {
-    // Video: merge into the chosen container using ffmpeg (ffmpeg-static is installed)
-    ytdlpOpts.format              = 'bestvideo+bestaudio/best';
-    ytdlpOpts.mergeOutputFormat   = format; // mp4 / webm / mkv
+    ytdlpOpts.format            = 'bestvideo+bestaudio/best';
+    ytdlpOpts.mergeOutputFormat = format; // mp4 / webm / mkv
   }
 
   // ─── Download ─────────────────────────────────────────────────
+  console.log(`[Extract] Starting yt-dlp download — ${trackUrl}`);
   let filePath;
   try {
     await youtubeDl(trackUrl, ytdlpOpts);
-
-    // yt-dlp replaces %(ext)s with the real extension; find the file it wrote
-    filePath = await resolveOutputFile(tmpBase, format, isAudio);
+    filePath = await findOutputFile(tmpBase);
 
     if (!filePath) {
-      throw new Error('yt-dlp finished but output file could not be found.');
+      throw new Error('yt-dlp finished but the output file could not be found in the temp directory.');
     }
+    console.log(`[Extract] Download complete: ${filePath}`);
   } catch (err) {
     console.error('[Extract] yt-dlp error:', err.message);
-    const errMsg = sanitizeYtdlpError(err.message);
     return interaction.editReply({
-      content: `❌ Download failed: ${errMsg}`,
+      content: `❌ Download failed: ${sanitizeError(err.message)}`,
     });
   }
 
   // ─── Size check ───────────────────────────────────────────────
   try {
     const { size } = await statAsync(filePath);
+    console.log(`[Extract] File size: ${(size / 1024 / 1024).toFixed(2)} MB`);
     if (size > DISCORD_MAX_BYTES) {
       await unlinkAsync(filePath).catch(() => {});
       return interaction.editReply({
         content:
           `❌ The file is **${(size / 1024 / 1024).toFixed(1)} MB** — Discord's upload limit is 25 MB.\n` +
-          `Try again with an audio format (e.g. \`mp3\` or \`aac\`) to get a much smaller file.`,
+          `Try again with an audio format such as \`mp3\` or \`aac\` to get a much smaller file.`,
       });
     }
-  } catch {
-    // If stat fails the send will fail too — let the catch below handle it
+  } catch (err) {
+    console.warn('[Extract] Could not stat file:', err.message);
   }
 
   // ─── Open DM & send ───────────────────────────────────────────
@@ -126,21 +128,26 @@ export async function execute(interaction) {
     .trim()
     .slice(0, 80) || 'track';
 
-  const attachmentName = `${safeName}.${format === 'ogg' ? 'ogg' : format}`;
+  // For ogg/vorbis yt-dlp writes .ogg, all others match the format string
+  const ext            = format === 'ogg' ? 'ogg' : format;
+  const attachmentName = `${safeName}.${ext}`;
 
+  console.log(`[Extract] Sending DM to ${interaction.user.tag}: ${attachmentName}`);
   try {
     const dmChannel = await interaction.user.createDM();
     await dmChannel.send({
-      content: `🎵 Here's your extracted track from Groove!`,
+      content: '🎵 Here\'s your extracted track from Groove!',
       files: [{ attachment: filePath, name: attachmentName }],
     });
   } catch (err) {
     await unlinkAsync(filePath).catch(() => {});
 
-    // Discord error 50007 = Cannot send messages to this user (DMs disabled)
+    // Discord error 50007 = Cannot send messages to this user (DMs closed)
     if (err.code === 50007) {
       return interaction.editReply({
-        content: '❌ I couldn\'t send you a DM. Please enable **"Allow direct messages from server members"** in your Privacy Settings and try again.',
+        content:
+          '❌ I couldn\'t send you a DM.\n' +
+          'Please enable **"Allow direct messages from server members"** in your Privacy Settings and try again.',
       });
     }
 
@@ -148,10 +155,11 @@ export async function execute(interaction) {
     return interaction.editReply({
       content: `❌ Failed to send the file: ${err.message}`,
     });
-  } finally {
-    // Always clean up the temp file
-    await unlinkAsync(filePath).catch(() => {});
   }
+
+  // Clean up
+  await unlinkAsync(filePath).catch(() => {});
+  console.log(`[Extract] Done — temp file cleaned up.`);
 
   // ─── Success ──────────────────────────────────────────────────
   const embed = new EmbedBuilder()
@@ -168,50 +176,43 @@ export async function execute(interaction) {
   await interaction.editReply({ embeds: [embed] });
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
- * After yt-dlp runs, locate the output file.
- * yt-dlp replaces %(ext)s with the real extension (e.g. mp4, webm, m4a…).
- * For audio extractions the extension may differ from the requested format
- * (e.g. ogg → .ogg / vorbis, or the intermediary before conversion).
- * We try the expected extension first, then fall back to a glob-style scan of
- * the tmp directory for files starting with our UUID prefix.
+ * After yt-dlp writes `<tmpBase>.<ext>`, find whatever file it created.
+ * yt-dlp substitutes %(ext)s with the real extension, which may differ from
+ * the requested format (e.g. ogg/vorbis → .ogg, or an m4a before remux).
  *
- * @param {string} tmpBase - Path without extension
- * @param {string} format  - Requested format string
- * @param {boolean} isAudio
+ * @param {string} tmpBase  Full path without extension (e.g. /tmp/groove-extract-<uuid>)
  * @returns {Promise<string|null>}
  */
-async function resolveOutputFile(tmpBase, format, isAudio) {
-  const { readdir } = await import('fs/promises');
-  const dir   = tmpdir();
-  const base  = tmpBase.replace(dir + '\\', '').replace(dir + '/', '');
+async function findOutputFile(tmpBase) {
+  const dir      = tmpdir();
+  const baseName = tmpBase.slice(dir.length).replace(/^[\\/]/, ''); // just the filename without ext
 
-  // Look for any file in tmpdir that starts with our unique base name
   try {
     const files = await readdir(dir);
-    const match = files.find(f => f.startsWith(base.split('/').pop().split('\\').pop()));
-    if (match) return join(dir, match);
+    // Match any file that starts with our unique base name
+    const match = files.find(f => f.startsWith(baseName) && !f.endsWith('.part'));
+    return match ? join(dir, match) : null;
   } catch {
-    // ignore
+    return null;
   }
-  return null;
 }
 
 /**
- * Trim yt-dlp's verbose error output down to something readable.
+ * Trim yt-dlp's verbose error output to something human-readable.
  * @param {string} msg
  * @returns {string}
  */
-function sanitizeYtdlpError(msg) {
+function sanitizeError(msg) {
   if (!msg) return 'Unknown error';
-  // Strip ANSI codes
-  const clean = msg.replace(/\x1B\[[0-9;]*m/g, '');
-  // Take only the first line that contains something useful
+  const clean = msg.replace(/\x1B\[[0-9;]*m/g, ''); // strip ANSI
   const lines = clean.split('\n').map(l => l.trim()).filter(Boolean);
-  const errorLine = lines.find(l => l.toLowerCase().includes('error') || l.toLowerCase().includes('unable')) || lines[0] || 'Unknown error';
-  return errorLine.slice(0, 200);
+  const errLine = lines.find(l =>
+    l.toLowerCase().includes('error') || l.toLowerCase().includes('unable')
+  ) || lines[0] || 'Unknown error';
+  return errLine.slice(0, 200);
 }
 
 /**
@@ -221,8 +222,7 @@ function sanitizeYtdlpError(msg) {
  */
 function extractTitleFromUrl(url) {
   try {
-    const u = new URL(url);
-    // Use the last non-empty path segment
+    const u        = new URL(url);
     const segments = u.pathname.split('/').filter(Boolean);
     return segments[segments.length - 1] || u.hostname;
   } catch {
