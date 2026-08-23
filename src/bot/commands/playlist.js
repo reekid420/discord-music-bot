@@ -7,11 +7,12 @@ import {
   getUserPlaylists,
   getAllPlaylists,
   getPlaylistByName,
-  getPlaylistByNameGlobal,
+  resolvePlaylistByName,
   getPlaylistTracks,
   addPlaylistTrack,
   deletePlaylist,
   updatePlaylist,
+  getGuildSettings,
 } from '../../db/database.js';
 import { truncate } from '../utils/formatters.js';
 
@@ -119,12 +120,11 @@ async function handleAdd(interaction) {
   const name = interaction.options.getString('name', true).trim();
   const query = interaction.options.getString('query');
 
-  let playlist = getPlaylistByName(interaction.user.id, name);
-
-  // Admins/DJs can add to any playlist (including web-created ones)
-  if (!playlist && isDJ(interaction.member)) {
-    playlist = getPlaylistByNameGlobal(name);
-  }
+  // Own playlists, or any playlist for admins/DJs
+  const playlist = resolvePlaylistByName(name, interaction.user.id, {
+    includePublic: false,
+    djOverride: isDJ(interaction.member),
+  });
 
   if (!playlist) {
     return interaction.reply({
@@ -211,20 +211,11 @@ async function handlePlay(interaction) {
   }
 
   const name = interaction.options.getString('name', true).trim();
-  let playlist = getPlaylistByName(interaction.user.id, name);
 
-  // Fallback 1: public playlists (any owner)
-  if (!playlist) {
-    const { getDb } = await import('../../db/database.js');
-    playlist = getDb()
-      .prepare('SELECT * FROM playlists WHERE name = ? AND is_public = 1')
-      .get(name);
-  }
-
-  // Fallback 2: admins/DJs can play ANY playlist (including web-created ones)
-  if (!playlist && isDJ(interaction.member)) {
-    playlist = getPlaylistByNameGlobal(name);
-  }
+  // Own → public → (DJ) any
+  const playlist = resolvePlaylistByName(name, interaction.user.id, {
+    djOverride: isDJ(interaction.member),
+  });
 
   if (!playlist) {
     return interaction.reply({ content: `❌ Playlist **${name}** not found.`, ephemeral: true });
@@ -238,6 +229,10 @@ async function handlePlay(interaction) {
   await interaction.deferReply();
 
   const player = interaction.client.player;
+  const defaultVolume = Math.max(
+    1,
+    Math.min(100, getGuildSettings(interaction.guildId)?.default_volume ?? 80)
+  );
   let added = 0;
 
   for (const t of tracks) {
@@ -245,7 +240,7 @@ async function handlePlay(interaction) {
       await player.play(vc, t.url, {
         nodeOptions: {
           metadata: { channel: interaction.channel, guild: interaction.guild },
-          volume: 80,
+          volume: defaultVolume,
           leaveOnEmpty: true,
           leaveOnEmptyCooldown: 300_000,
           leaveOnEnd: false,
@@ -302,19 +297,11 @@ async function handleList(interaction) {
 
 async function handleView(interaction) {
   const name = interaction.options.getString('name', true).trim();
-  let playlist = getPlaylistByName(interaction.user.id, name);
 
-  if (!playlist) {
-    const { getDb } = await import('../../db/database.js');
-    playlist = getDb()
-      .prepare('SELECT * FROM playlists WHERE name = ? AND is_public = 1')
-      .get(name);
-  }
-
-  // Admins/DJs can view any playlist
-  if (!playlist && isDJ(interaction.member)) {
-    playlist = getPlaylistByNameGlobal(name);
-  }
+  // Own → public → (DJ) any
+  const playlist = resolvePlaylistByName(name, interaction.user.id, {
+    djOverride: isDJ(interaction.member),
+  });
 
   if (!playlist) {
     return interaction.reply({ content: `❌ Playlist **${name}** not found.`, ephemeral: true });

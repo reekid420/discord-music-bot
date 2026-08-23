@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { QueryType } from 'discord-player';
+import { resolveVoiceChannel, queueNodeDefaults } from '../helpers.js';
 import {
   getAllPlaylists,
   getPlaylistById,
@@ -111,24 +112,15 @@ export function playlistRoutes(client) {
     const guild = client.guilds.cache.get(guildId);
     if (!guild) return res.status(404).json({ error: 'Guild not found' });
 
-    // Only fetch the bot member if it's not already cached — avoids a full guild member fetch
-    const botMember =
-      guild.members.cache.get(client.user.id) ||
-      (await guild.members.fetch(client.user.id).catch(() => null));
-
-    const vc =
-      botMember?.voice?.channel ||
-      guild.channels.cache.find(
-        (c) => c.isVoiceBased() && c.members.filter((m) => !m.user.bot).size > 0
-      );
-
+    const vc = await resolveVoiceChannel(client, guild);
     if (!vc) return res.status(400).json({ error: 'No voice channel to join' });
 
+    const nodeOptions = { metadata: { guild }, ...queueNodeDefaults(guildId) };
     let added = 0;
     for (const t of tracks) {
       try {
         await client.player.play(vc, t.url, {
-          nodeOptions: { metadata: { guild }, volume: 80 },
+          nodeOptions,
           // Treat stored URLs as direct links; avoids keyword-search Mix resolution
           searchEngine: QueryType.AUTO,
         });

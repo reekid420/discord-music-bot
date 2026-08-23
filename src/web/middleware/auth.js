@@ -1,5 +1,10 @@
 import crypto from 'crypto';
-import { createSession, getSession, deleteSession, cleanExpiredSessions } from '../../db/database.js';
+import {
+  createSession,
+  getSession,
+  deleteSession,
+  cleanExpiredSessions,
+} from '../../db/database.js';
 
 export const SESSION_DURATION = 24 * 60 * 60; // seconds
 export const COOKIE_NAME = 'miyabi_session';

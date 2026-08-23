@@ -1,28 +1,18 @@
 import { Router } from 'express';
 import { QueryType } from 'discord-player';
-import { emitPlayerState } from '../server.js';
-
-// Detect YouTube playlist URLs to choose AUTO vs YOUTUBE_SEARCH
-function pickSearchEngine(query) {
-  try {
-    const u = new URL(query);
-    const isYtPlaylist =
-      (u.hostname === 'youtube.com' || u.hostname === 'www.youtube.com') &&
-      u.searchParams.has('list');
-    if (isYtPlaylist) return QueryType.AUTO;
-  } catch {
-    /* not a URL */
-  }
-  if (/^https?:\/\//i.test(query)) return QueryType.AUTO;
-  return QueryType.YOUTUBE_SEARCH;
-}
+import { pickSearchEngine } from '../../bot/utils/urlHelpers.js';
+import {
+  serializeTrack,
+  getGuildQueue,
+  resolveVoiceChannel,
+  queueNodeDefaults,
+} from '../helpers.js';
 
 /**
  * Player control routes.
  * @param {import('discord.js').Client} client
- * @param {import('socket.io').Server} io
  */
-export function playerRoutes(client, io) {
+export function playerRoutes(client) {
   const router = Router();
 
   // GET /api/player/search?query=<text> — resolve a query to track metadata (for playlist add)
@@ -34,18 +24,11 @@ export function playerRoutes(client, io) {
       const result = await client.player.search(query, {
         searchEngine: QueryType.YOUTUBE_SEARCH,
       });
-      const tracks = (result.tracks || []).slice(0, 5).map((t) => ({
-        title: t.title,
-        url: t.url,
-        durationMs: t.durationMS,
-        duration: t.duration,
-        thumbnail: t.thumbnail,
-        artist: t.author,
-      }));
+      const tracks = (result.tracks || []).slice(0, 5).map(serializeTrack);
       res.json({ tracks });
     } catch (err) {
-      console.error("[Player]", err);
-      res.status(500).json({ error: "Action failed" });
+      console.error('[Player]', err);
+      res.status(500).json({ error: 'Search failed' });
     }
   });
 
@@ -54,7 +37,7 @@ export function playerRoutes(client, io) {
     const guildId = req.query.guild;
     if (!guildId) return res.status(400).json({ error: 'guild query param required' });
 
-    const queue = client.player?.queues?.get(guildId);
+    const queue = getGuildQueue(client, guildId);
     if (!queue || !queue.currentTrack) {
       return res.json({ active: false });
     }
@@ -63,15 +46,7 @@ export function playerRoutes(client, io) {
 
     res.json({
       active: true,
-      currentTrack: {
-        title: queue.currentTrack.title,
-        artist: queue.currentTrack.author,
-        duration: queue.currentTrack.duration,
-        durationMs: queue.currentTrack.durationMS,
-        thumbnail: queue.currentTrack.thumbnail,
-        url: queue.currentTrack.url,
-        requestedBy: queue.currentTrack.requestedBy?.tag || 'Unknown',
-      },
+      currentTrack: serializeTrack(queue.currentTrack),
       progress: {
         current: progress?.current?.value || 0,
         currentLabel: progress?.current?.label || '0:00',
@@ -92,18 +67,7 @@ export function playerRoutes(client, io) {
     const guild = client.guilds.cache.get(guildId);
     if (!guild) return res.status(404).json({ error: 'Guild not found' });
 
-    // Only fetch the bot member if it's not already cached — avoids a full guild member fetch
-    const botMember =
-      guild.members.cache.get(client.user.id) ||
-      (await guild.members.fetch(client.user.id).catch(() => null));
-
-    // Prefer channel bot is already in, else find first channel with real (non-bot) members
-    const vc =
-      botMember?.voice?.channel ||
-      guild.channels.cache.find(
-        (c) => c.isVoiceBased() && c.members.filter((m) => !m.user.bot).size > 0
-      );
-
+    const vc = await resolveVoiceChannel(client, guild);
     if (!vc) {
       return res.status(400).json({
         error: 'No active voice channel found. Join a voice channel in Discord first.',
@@ -114,12 +78,9 @@ export function playerRoutes(client, io) {
       const result = await client.player.play(vc, query, {
         nodeOptions: {
           metadata: { guild },
-          volume: 80,
-          leaveOnEmpty: true,
-          leaveOnEmptyCooldown: 300_000,
-          leaveOnEnd: false,
+          ...queueNodeDefaults(guildId),
         },
-        searchEngine: pickSearchEngine(query),
+        searchEngine: pickSearchEngine(query, QueryType),
       });
 
       const isPlaylist = !!result.searchResult?.playlist;
@@ -131,15 +92,15 @@ export function playerRoutes(client, io) {
         res.json({ success: true, track: result.track.title, isPlaylist: false });
       }
     } catch (err) {
-      console.error("[Player]", err);
-      res.status(500).json({ error: "Action failed" });
+      console.error('[Player]', err);
+      res.status(500).json({ error: 'Playback failed' });
     }
   });
 
   // POST /api/player/seek — { guild, position: ms }
   router.post('/seek', async (req, res) => {
     const { guild: guildId, position } = req.body;
-    const queue = client.player?.queues?.get(guildId);
+    const queue = getGuildQueue(client, guildId);
     if (!queue || !queue.currentTrack) return res.status(404).json({ error: 'No active track' });
 
     const ms = Math.max(0, parseInt(position) || 0);
@@ -147,15 +108,15 @@ export function playerRoutes(client, io) {
       await queue.node.seek(ms);
       res.json({ success: true, position: ms });
     } catch (err) {
-      console.error("[Player]", err);
-      res.status(500).json({ error: "Action failed" });
+      console.error('[Player]', err);
+      res.status(500).json({ error: 'Seek failed' });
     }
   });
 
   // POST /api/player/skip
   router.post('/skip', (req, res) => {
     const { guild: guildId } = req.body;
-    const queue = client.player?.queues?.get(guildId);
+    const queue = getGuildQueue(client, guildId);
     if (!queue) return res.status(404).json({ error: 'No active queue' });
     queue.node.skip();
     res.json({ success: true });
@@ -164,27 +125,27 @@ export function playerRoutes(client, io) {
   // POST /api/player/pause
   router.post('/pause', (req, res) => {
     const { guild: guildId } = req.body;
-    const queue = client.player?.queues?.get(guildId);
+    const queue = getGuildQueue(client, guildId);
     if (!queue) return res.status(404).json({ error: 'No active queue' });
     queue.node.setPaused(true);
-    emitPlayerState(client, io, guildId);
+    client.io.emitState(guildId);
     res.json({ success: true });
   });
 
   // POST /api/player/resume
   router.post('/resume', (req, res) => {
     const { guild: guildId } = req.body;
-    const queue = client.player?.queues?.get(guildId);
+    const queue = getGuildQueue(client, guildId);
     if (!queue) return res.status(404).json({ error: 'No active queue' });
     queue.node.setPaused(false);
-    emitPlayerState(client, io, guildId);
+    client.io.emitState(guildId);
     res.json({ success: true });
   });
 
   // POST /api/player/loop — { guild, mode: 0|1|2 }
   router.post('/loop', (req, res) => {
     const { guild: guildId, mode } = req.body;
-    const queue = client.player?.queues?.get(guildId);
+    const queue = getGuildQueue(client, guildId);
     if (!queue) return res.status(404).json({ error: 'No active queue' });
 
     // RepeatMode: 0 = Off, 1 = Track, 2 = Queue
@@ -193,14 +154,14 @@ export function playerRoutes(client, io) {
       return res.status(400).json({ error: 'mode must be 0, 1, or 2' });
     }
     queue.setRepeatMode(parsed);
-    emitPlayerState(client, io, guildId);
+    client.io.emitState(guildId);
     res.json({ success: true, mode: parsed });
   });
 
   // POST /api/player/stop
   router.post('/stop', (req, res) => {
     const { guild: guildId } = req.body;
-    const queue = client.player?.queues?.get(guildId);
+    const queue = getGuildQueue(client, guildId);
     if (!queue) return res.status(404).json({ error: 'No active queue' });
     queue.delete();
     res.json({ success: true });
@@ -209,11 +170,11 @@ export function playerRoutes(client, io) {
   // POST /api/player/volume
   router.post('/volume', (req, res) => {
     const { guild: guildId, volume } = req.body;
-    const queue = client.player?.queues?.get(guildId);
+    const queue = getGuildQueue(client, guildId);
     if (!queue) return res.status(404).json({ error: 'No active queue' });
     const vol = Math.max(1, Math.min(100, parseInt(volume) || 80));
     queue.node.setVolume(vol);
-    emitPlayerState(client, io, guildId);
+    client.io.emitState(guildId);
     res.json({ success: true, volume: vol });
   });
 

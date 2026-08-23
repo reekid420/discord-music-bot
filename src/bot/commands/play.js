@@ -2,6 +2,7 @@ import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { QueryType } from 'discord-player';
 import { getMemberVoiceChannel } from '../utils/permissions.js';
 import { pickSearchEngine } from '../utils/urlHelpers.js';
+import { getGuildSettings } from '../../db/database.js';
 
 export const data = new SlashCommandBuilder()
   .setName('play')
@@ -25,6 +26,10 @@ export async function execute(interaction) {
 
   const query = interaction.options.getString('query', true);
   const player = interaction.client.player;
+  const defaultVolume = Math.max(
+    1,
+    Math.min(100, getGuildSettings(interaction.guildId)?.default_volume ?? 80)
+  );
 
   // For YouTube playlist URLs use AUTO so the full playlist loads.
   // For plain text searches use YOUTUBE_SEARCH to prevent Mix auto-queue.
@@ -37,7 +42,7 @@ export async function execute(interaction) {
           channel: interaction.channel,
           guild: interaction.guild,
         },
-        volume: 80,
+        volume: defaultVolume,
         leaveOnEmpty: true,
         leaveOnEmptyCooldown: 300_000,
         leaveOnEnd: false,

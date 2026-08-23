@@ -106,6 +106,31 @@ export function getPlaylistByNameGlobal(name) {
     .get(name);
 }
 
+/**
+ * Find a public playlist by name (any owner).
+ */
+export function getPublicPlaylistByName(name) {
+  return getDb().prepare('SELECT * FROM playlists WHERE name = ? AND is_public = 1').get(name);
+}
+
+/**
+ * Standard playlist access resolution:
+ *   own → public (optional) → any (DJ override)
+ * @param {string} name
+ * @param {string} userId
+ * @param {{ includePublic?: boolean, djOverride?: boolean }} [opts]
+ * @returns {object|null}
+ */
+export function resolvePlaylistByName(name, userId, opts = {}) {
+  const { includePublic = true, djOverride = false } = opts;
+  return (
+    getPlaylistByName(userId, name) ||
+    (includePublic ? getPublicPlaylistByName(name) : null) ||
+    (djOverride ? getPlaylistByNameGlobal(name) : null) ||
+    null
+  );
+}
+
 export function getPlaylistById(id) {
   return getDb().prepare('SELECT * FROM playlists WHERE id = ?').get(id);
 }

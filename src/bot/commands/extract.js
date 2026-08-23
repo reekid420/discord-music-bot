@@ -1,7 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { useQueue } from 'discord-player';
 import youtubeDl from 'youtube-dl-exec';
-import ffmpegPath from 'ffmpeg-static';
 import { unlink, stat } from 'fs';
 import { readdir } from 'fs/promises';
 import { promisify } from 'util';
@@ -109,7 +108,7 @@ export async function execute(interaction) {
     output: outTemplate,
     noPlaylist: true,
     noWarnings: true,
-    ffmpegLocation: ffmpegPath, // use bundled ffmpeg so remux/conversion works
+    ffmpegLocation: process.env.FFMPEG_BIN || 'ffmpeg', // system ffmpeg (see DEPLOYMENT.md)
   };
 
   if (isAudio) {

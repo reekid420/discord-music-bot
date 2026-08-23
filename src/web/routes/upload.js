@@ -10,6 +10,7 @@ import {
   getLocalFileById,
   deleteLocalFile,
 } from '../../db/database.js';
+import { resolveVoiceChannel, queueNodeDefaults } from '../helpers.js';
 
 const ALLOWED_EXTENSIONS = ['.mp3', '.flac', '.wav', '.ogg', '.m4a', '.opus', '.webm'];
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
@@ -122,20 +123,14 @@ export function uploadRoutes(client) {
     const guild = client.guilds.cache.get(guildId);
     if (!guild) return res.status(404).json({ error: 'Guild not found' });
 
-    const botMember = guild.members.cache.get(client.user.id);
-    const vc =
-      botMember?.voice?.channel ||
-      guild.channels.cache.find(
-        (c) => c.isVoiceBased() && c.members.filter((m) => !m.user.bot).size > 0
-      );
-
+    const vc = await resolveVoiceChannel(client, guild);
     if (!vc) return res.status(400).json({ error: 'No voice channel to join' });
 
     try {
       const { QueryType } = await import('discord-player');
       await client.player.play(vc, file.filepath, {
         searchEngine: QueryType.FILE,
-        nodeOptions: { metadata: { guild }, volume: 80 },
+        nodeOptions: { metadata: { guild }, ...queueNodeDefaults(guildId) },
       });
       res.json({ success: true, title: file.title });
     } catch (err) {
