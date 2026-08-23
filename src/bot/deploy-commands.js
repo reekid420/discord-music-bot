@@ -18,7 +18,7 @@ if (!token || !clientId) {
 // Collect all command data
 const commands = [];
 const commandsPath = join(__dirname, 'commands');
-const commandFiles = readdirSync(commandsPath).filter(f => f.endsWith('.js'));
+const commandFiles = readdirSync(commandsPath).filter((f) => f.endsWith('.js'));
 
 for (const file of commandFiles) {
   const filePath = join(commandsPath, file);

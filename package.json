@@ -1,5 +1,5 @@
 {
-"name": "dj-miyabi",
+  "name": "dj-miyabi",
   "version": "1.0.0",
   "description": "DJ Miyabi — Discord music bot with web dashboard",
   "main": "src/bot/index.js",
@@ -7,7 +7,11 @@
   "scripts": {
     "start": "node src/bot/index.js",
     "deploy": "node src/bot/deploy-commands.js",
-    "dev": "node --watch src/bot/index.js"
+    "dev": "node --watch src/bot/index.js",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write ."
   },
   "keywords": [
     "discord",
@@ -36,6 +40,12 @@
     "socket.io": "^4.8.3",
     "sodium-native": "^5.1.0",
     "youtube-dl-exec": "^3.1.12"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.9.0",
+    "globals": "^17.11.0",
+    "prettier": "^3.9.6",
+    "vitest": "^4.1.11"
   }
-  
 }

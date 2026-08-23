@@ -26,7 +26,8 @@ export function formatDuration(ms) {
 export function progressBar(current, total, length = 20) {
   if (!total || total <= 0) return '▬'.repeat(length);
   const progress = Math.round((current / total) * length);
-  const bar = '▬'.repeat(Math.max(0, progress)) + '🔘' + '▬'.repeat(Math.max(0, length - progress - 1));
+  const bar =
+    '▬'.repeat(Math.max(0, progress)) + '🔘' + '▬'.repeat(Math.max(0, length - progress - 1));
   return bar;
 }
 

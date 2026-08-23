@@ -1,9 +1,14 @@
 import { Router } from 'express';
 import { QueryType } from 'discord-player';
 import {
-  getAllPlaylists, getPlaylistById, getPlaylistTracks,
-  createPlaylist, updatePlaylist, deletePlaylist,
-  addPlaylistTrack, removePlaylistTrack,
+  getAllPlaylists,
+  getPlaylistById,
+  getPlaylistTracks,
+  createPlaylist,
+  updatePlaylist,
+  deletePlaylist,
+  addPlaylistTrack,
+  removePlaylistTrack,
 } from '../../db/database.js';
 
 /**
@@ -17,7 +22,7 @@ export function playlistRoutes(client) {
   router.get('/', (req, res) => {
     const playlists = getAllPlaylists();
     // Attach track count to each
-    const result = playlists.map(p => ({
+    const result = playlists.map((p) => ({
       ...p,
       trackCount: getPlaylistTracks(p.id).length,
     }));
@@ -47,7 +52,9 @@ export function playlistRoutes(client) {
       res.json(playlist);
     } catch (err) {
       if (err.message.includes('UNIQUE')) {
-        return res.status(409).json({ error: 'Playlist with that name already exists for this user' });
+        return res
+          .status(409)
+          .json({ error: 'Playlist with that name already exists for this user' });
       }
       throw err;
     }
@@ -105,11 +112,15 @@ export function playlistRoutes(client) {
     if (!guild) return res.status(404).json({ error: 'Guild not found' });
 
     // Only fetch the bot member if it's not already cached — avoids a full guild member fetch
-    const botMember = guild.members.cache.get(client.user.id)
-      || await guild.members.fetch(client.user.id).catch(() => null);
+    const botMember =
+      guild.members.cache.get(client.user.id) ||
+      (await guild.members.fetch(client.user.id).catch(() => null));
 
-    const vc = botMember?.voice?.channel
-      || guild.channels.cache.find(c => c.isVoiceBased() && c.members.filter(m => !m.user.bot).size > 0);
+    const vc =
+      botMember?.voice?.channel ||
+      guild.channels.cache.find(
+        (c) => c.isVoiceBased() && c.members.filter((m) => !m.user.bot).size > 0
+      );
 
     if (!vc) return res.status(400).json({ error: 'No voice channel to join' });
 
@@ -155,7 +166,9 @@ export function playlistRoutes(client) {
             thumbnail: track.thumbnail,
           });
           added++;
-        } catch { /* skip duplicates / constraint errors */ }
+        } catch {
+          /* skip duplicates / constraint errors */
+        }
       }
 
       res.json({

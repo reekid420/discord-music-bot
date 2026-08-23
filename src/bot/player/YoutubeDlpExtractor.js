@@ -151,7 +151,7 @@ export class YoutubeDlpExtractor extends BaseExtractor {
       format: 'bestaudio/best',
       noPlaylist: true,
     });
-    const url = (typeof res === 'string' ? res : res?.stdout ?? '').trim().split('\n')[0];
+    const url = (typeof res === 'string' ? res : (res?.stdout ?? '')).trim().split('\n')[0];
     if (!url) throw new Error('yt-dlp returned no stream URL');
     return url;
   }

@@ -45,7 +45,7 @@ export function startWebServer(client) {
 
   // Guilds endpoint — list guilds the bot is in
   app.get('/api/guilds', (req, res) => {
-    const guilds = client.guilds.cache.map(g => ({
+    const guilds = client.guilds.cache.map((g) => ({
       id: g.id,
       name: g.name,
       icon: g.iconURL({ size: 64 }),
@@ -76,7 +76,11 @@ export function startWebServer(client) {
 
   // ─── Bot → Dashboard event bridge ───
   client.on('playerTrackStart', (guildId, meta, queue) => {
-    io.to(`guild:${guildId}`).emit('trackStart', { guildId, track: meta, queue: serializeQueue(queue) });
+    io.to(`guild:${guildId}`).emit('trackStart', {
+      guildId,
+      track: meta,
+      queue: serializeQueue(queue),
+    });
   });
 
   client.on('playerQueueUpdate', (guildId, queue) => {
@@ -110,15 +114,17 @@ function emitPlayerState(client, io, guildId) {
   io.to(`guild:${guildId}`).emit('playerState', {
     guildId,
     active: true,
-    currentTrack: queue.currentTrack ? {
-      title: queue.currentTrack.title,
-      artist: queue.currentTrack.author,
-      duration: queue.currentTrack.duration,
-      durationMs: queue.currentTrack.durationMS,
-      thumbnail: queue.currentTrack.thumbnail,
-      url: queue.currentTrack.url,
-      requestedBy: queue.currentTrack.requestedBy?.tag || 'Unknown',
-    } : null,
+    currentTrack: queue.currentTrack
+      ? {
+          title: queue.currentTrack.title,
+          artist: queue.currentTrack.author,
+          duration: queue.currentTrack.duration,
+          durationMs: queue.currentTrack.durationMS,
+          thumbnail: queue.currentTrack.thumbnail,
+          url: queue.currentTrack.url,
+          requestedBy: queue.currentTrack.requestedBy?.tag || 'Unknown',
+        }
+      : null,
     queue: serializeQueue(queue),
     volume: queue.node.volume,
     paused: queue.node.isPaused(),

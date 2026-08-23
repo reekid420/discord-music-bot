@@ -1,6 +1,7 @@
 /* ═══════════════════════════════════════════════
    DJ Miyabi Dashboard — Client-Side Application
    ═══════════════════════════════════════════════ */
+/* global io */
 
 // ─── State ───
 let socket = null;
@@ -20,7 +21,9 @@ async function checkAuth() {
       showDashboard();
       return true;
     }
-  } catch (e) {}
+  } catch {
+    // fetch failed (offline or logged out) — fall through to login screen
+  }
   showLogin();
   return false;
 }
@@ -114,9 +117,13 @@ function initSocket() {
 function isYouTubePlaylistUrl(query) {
   try {
     const u = new URL(query);
-    return (u.hostname === 'youtube.com' || u.hostname === 'www.youtube.com')
-           && u.searchParams.has('list');
-  } catch { return false; }
+    return (
+      (u.hostname === 'youtube.com' || u.hostname === 'www.youtube.com') &&
+      u.searchParams.has('list')
+    );
+  } catch {
+    return false;
+  }
 }
 
 // ─── Search / Play Query ───
@@ -135,7 +142,12 @@ async function playQuery(query) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Unknown error');
-    return { success: true, title: data.track, isPlaylist: data.isPlaylist, trackCount: data.trackCount };
+    return {
+      success: true,
+      title: data.track,
+      isPlaylist: data.isPlaylist,
+      trackCount: data.trackCount,
+    };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -164,16 +176,25 @@ function setupSearchBar(inputId, btnId) {
         btn.textContent = '✅';
       }
       input.value = '';
-      setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2500);
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }, 2500);
     } else {
       btn.textContent = '❌';
       btn.title = result?.error || 'Failed';
-      setTimeout(() => { btn.textContent = originalText; btn.disabled = false; btn.title = ''; }, 3000);
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.disabled = false;
+        btn.title = '';
+      }, 3000);
     }
   }
 
   btn.addEventListener('click', submit);
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submit();
+  });
 }
 
 // Wire up the Now Playing search bar
@@ -192,7 +213,7 @@ async function loadGuilds() {
       return;
     }
 
-    guilds.forEach((g, i) => {
+    guilds.forEach((g) => {
       const opt = document.createElement('option');
       opt.value = g.id;
       opt.textContent = g.name;
@@ -220,13 +241,13 @@ function selectGuild(guildId) {
 }
 
 // ─── Navigation ───
-$$('.nav-btn').forEach(btn => {
+$$('.nav-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
-    $$('.nav-btn').forEach(b => b.classList.remove('active'));
+    $$('.nav-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
 
     const viewId = btn.dataset.view;
-    $$('.view').forEach(v => v.classList.remove('active'));
+    $$('.view').forEach((v) => v.classList.remove('active'));
     $(`#view-${viewId}`).classList.add('active');
 
     // Load view-specific data
@@ -276,7 +297,7 @@ async function seekTo(ms) {
     // Sync local tracking
     if (playerState.progress) playerState.progress.current = clamped;
     startProgressTracking(clamped, total, playerState.paused);
-    setScrubberPct(total > 0 ? (clamped / total * 100) : 0);
+    setScrubberPct(total > 0 ? (clamped / total) * 100 : 0);
     $('#np-current-time').textContent = formatMs(clamped);
   } catch (err) {
     console.error('[Seek]', err);
@@ -299,7 +320,7 @@ async function seekTo(ms) {
     e.preventDefault();
     scrubberDragging = true;
     scrubber.classList.add('dragging');
-    stopProgressTracking();       // pause local ticker while dragging
+    stopProgressTracking(); // pause local ticker while dragging
     onDragMove(e);
   }
 
@@ -309,7 +330,7 @@ async function seekTo(ms) {
     const pct = pctFromEvent(e) * 100;
     setScrubberPct(pct);
     const total = playerState.progress?.total || 0;
-    if (total) $('#np-current-time').textContent = formatMs(pct / 100 * total);
+    if (total) $('#np-current-time').textContent = formatMs((pct / 100) * total);
   }
 
   function onDragEnd(e) {
@@ -332,7 +353,7 @@ async function seekTo(ms) {
   scrubber.addEventListener('keydown', (e) => {
     const step = 5000;
     const total = playerState.progress?.total || 0;
-    const cur   = playerState.progress?.current || 0;
+    const cur = playerState.progress?.current || 0;
     if (e.key === 'ArrowRight') seekTo(cur + step);
     else if (e.key === 'ArrowLeft') seekTo(Math.max(0, cur - step));
     else if (e.key === 'Home') seekTo(0);
@@ -361,7 +382,9 @@ function renderNowPlaying() {
 
   $('#np-title').textContent = currentTrack.title || 'Unknown';
   $('#np-artist').textContent = currentTrack.artist || 'Unknown';
-  $('#np-requested').textContent = currentTrack.requestedBy ? `Requested by ${currentTrack.requestedBy}` : '';
+  $('#np-requested').textContent = currentTrack.requestedBy
+    ? `Requested by ${currentTrack.requestedBy}`
+    : '';
 
   if (currentTrack.thumbnail) {
     $('#np-thumbnail').src = currentTrack.thumbnail;
@@ -373,7 +396,7 @@ function renderNowPlaying() {
   }
 
   if (progress) {
-    const pct = progress.total > 0 ? (progress.current / progress.total * 100) : 0;
+    const pct = progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
     setScrubberPct(pct);
     $('#np-current-time').textContent = progress.currentLabel || '0:00';
     $('#np-total-time').textContent = progress.totalLabel || '0:00';
@@ -397,10 +420,10 @@ function startProgressTracking(currentMs, totalMs, paused) {
 
   let elapsed = currentMs;
   progressInterval = setInterval(() => {
-    if (scrubberDragging) return;  // don't fight the user while they're dragging
+    if (scrubberDragging) return; // don't fight the user while they're dragging
     elapsed += 1000;
     if (elapsed > totalMs) elapsed = totalMs;
-    const pct = (elapsed / totalMs * 100);
+    const pct = (elapsed / totalMs) * 100;
     setScrubberPct(pct);
     $('#np-current-time').textContent = formatMs(elapsed);
     if (playerState.progress) playerState.progress.current = elapsed;
@@ -461,8 +484,8 @@ $('#ctrl-rewind').addEventListener('click', () => {
   seekTo(Math.max(0, cur - SEEK_STEP_MS));
 });
 $('#ctrl-forward').addEventListener('click', () => {
-  const cur   = playerState.progress?.current || 0;
-  const total = playerState.progress?.total   || 0;
+  const cur = playerState.progress?.current || 0;
+  const total = playerState.progress?.total || 0;
   seekTo(Math.min(cur + SEEK_STEP_MS, total));
 });
 
@@ -505,7 +528,9 @@ function renderQueueFromState(tracks) {
     return;
   }
 
-  list.innerHTML = tracks.map(t => `
+  list.innerHTML = tracks
+    .map(
+      (t) => `
     <div class="queue-item" data-pos="${t.position}">
       <span class="queue-pos">${t.position}</span>
       ${t.thumbnail ? `<img class="queue-thumb" src="${t.thumbnail}" alt="">` : '<div class="queue-thumb"></div>'}
@@ -516,10 +541,12 @@ function renderQueueFromState(tracks) {
       <span class="queue-duration">${t.requestedBy || ''}</span>
       <button class="queue-remove" data-pos="${t.position}" title="Remove">✕</button>
     </div>
-  `).join('');
+  `
+    )
+    .join('');
 
   // Attach remove handlers
-  list.querySelectorAll('.queue-remove').forEach(btn => {
+  list.querySelectorAll('.queue-remove').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const pos = btn.dataset.pos;
       await fetch(`/api/queue/${pos}?guild=${currentGuildId}`, { method: 'DELETE' });
@@ -555,14 +582,18 @@ function renderPlaylists(playlists) {
     return;
   }
 
-  grid.innerHTML = playlists.map(p => `
+  grid.innerHTML = playlists
+    .map(
+      (p) => `
     <div class="playlist-card" data-id="${p.id}">
       <div class="playlist-card-name">${p.is_public ? '🌐' : '🔒'} ${escapeHtml(p.name)}</div>
       <div class="playlist-card-meta">${p.trackCount} tracks</div>
     </div>
-  `).join('');
+  `
+    )
+    .join('');
 
-  grid.querySelectorAll('.playlist-card').forEach(card => {
+  grid.querySelectorAll('.playlist-card').forEach((card) => {
     card.addEventListener('click', () => openPlaylistDetail(parseInt(card.dataset.id)));
   });
 }
@@ -591,15 +622,19 @@ function renderPlaylistTracks(tracks) {
     return;
   }
 
-  list.innerHTML = tracks.map((t, i) => `
+  list.innerHTML = tracks
+    .map(
+      (t, i) => `
     <div class="playlist-track-item">
       <span class="playlist-track-pos">${i + 1}</span>
       <span class="playlist-track-title">${escapeHtml(t.title)}</span>
       <button class="playlist-track-remove" data-id="${t.id}" title="Remove">✕</button>
     </div>
-  `).join('');
+  `
+    )
+    .join('');
 
-  list.querySelectorAll('.playlist-track-remove').forEach(btn => {
+  list.querySelectorAll('.playlist-track-remove').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const trackId = btn.dataset.id;
       await fetch(`/api/playlists/${currentPlaylistId}/tracks/${trackId}`, { method: 'DELETE' });
@@ -627,10 +662,16 @@ $('#playlist-enqueue-btn').addEventListener('click', async () => {
       body: JSON.stringify({ guild: currentGuildId }),
     });
     btn.textContent = '✅ Enqueued!';
-    setTimeout(() => { btn.textContent = '▶ Play All'; btn.disabled = false; }, 2000);
+    setTimeout(() => {
+      btn.textContent = '▶ Play All';
+      btn.disabled = false;
+    }, 2000);
   } catch (err) {
     btn.textContent = '❌ Failed';
-    setTimeout(() => { btn.textContent = '▶ Play All'; btn.disabled = false; }, 2000);
+    setTimeout(() => {
+      btn.textContent = '▶ Play All';
+      btn.disabled = false;
+    }, 2000);
   }
 });
 
@@ -671,7 +712,11 @@ $('#playlist-delete-btn').addEventListener('click', async () => {
         btn.title = `Imported ${data.added} of ${data.total} tracks from ${label}`;
         input.value = '';
         openPlaylistDetail(currentPlaylistId);
-        setTimeout(() => { btn.textContent = originalText; btn.disabled = false; btn.title = ''; }, 3000);
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.disabled = false;
+          btn.title = '';
+        }, 3000);
         return;
       }
 
@@ -697,16 +742,25 @@ $('#playlist-delete-btn').addEventListener('click', async () => {
       btn.textContent = '✅';
       input.value = '';
       openPlaylistDetail(currentPlaylistId);
-      setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }, 2000);
     } catch (err) {
       btn.textContent = '❌';
       btn.title = err.message;
-      setTimeout(() => { btn.textContent = originalText; btn.disabled = false; btn.title = ''; }, 3000);
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.disabled = false;
+        btn.title = '';
+      }, 3000);
     }
   }
 
   btn.addEventListener('click', submit);
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submit();
+  });
 })();
 
 // Create playlist
@@ -729,7 +783,12 @@ $('#playlist-save-btn').addEventListener('click', async () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       // is_public=true so Discord slash commands can discover web-created playlists
-      body: JSON.stringify({ name, ownerId: 'dashboard', guildId: currentGuildId, is_public: true }),
+      body: JSON.stringify({
+        name,
+        ownerId: 'dashboard',
+        guildId: currentGuildId,
+        is_public: true,
+      }),
     });
     $('#playlist-create-form').hidden = true;
     $('#playlist-name-input').value = '';
@@ -750,7 +809,10 @@ dropzone.addEventListener('click', (e) => {
   fileInput.click();
 });
 
-dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+dropzone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropzone.classList.add('drag-over');
+});
 dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
 dropzone.addEventListener('drop', (e) => {
   e.preventDefault();
@@ -780,7 +842,7 @@ async function uploadFile(file) {
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {
-        const pct = (e.loaded / e.total * 100);
+        const pct = (e.loaded / e.total) * 100;
         progressBar.style.width = `${pct}%`;
         progressText.textContent = `Uploading ${file.name}... ${Math.round(pct)}%`;
       }
@@ -789,7 +851,9 @@ async function uploadFile(file) {
     xhr.onload = () => {
       if (xhr.status === 200) {
         progressText.textContent = '✅ Upload complete!';
-        setTimeout(() => { progressEl.hidden = true; }, 2000);
+        setTimeout(() => {
+          progressEl.hidden = true;
+        }, 2000);
         loadUploadedFiles();
       } else {
         const err = JSON.parse(xhr.responseText);
@@ -824,7 +888,9 @@ function renderUploadedFiles(files) {
     return;
   }
 
-  list.innerHTML = files.map(f => `
+  list.innerHTML = files
+    .map(
+      (f) => `
     <div class="uploaded-file-item">
       <span class="uploaded-file-name">🎵 ${escapeHtml(f.title || f.filename)}</span>
       <div class="uploaded-file-actions">
@@ -832,7 +898,9 @@ function renderUploadedFiles(files) {
         <button class="btn btn-danger btn-sm" onclick="deleteUploadedFile(${f.id})">🗑</button>
       </div>
     </div>
-  `).join('');
+  `
+    )
+    .join('');
 }
 
 window.playUploadedFile = async (id) => {
@@ -864,7 +932,7 @@ async function loadSettings() {
     // DJ Role dropdown
     const djSelect = $('#setting-dj-role');
     djSelect.innerHTML = '<option value="">None</option>';
-    roles.forEach(r => {
+    roles.forEach((r) => {
       const opt = document.createElement('option');
       opt.value = r.id;
       opt.textContent = r.name;
@@ -883,7 +951,6 @@ async function loadSettings() {
     // Default volume
     $('#setting-default-volume').value = settings.default_volume || 80;
     $('#default-volume-label').textContent = `${settings.default_volume || 80}%`;
-
   } catch (err) {
     console.error('Failed to load settings:', err);
   }
@@ -914,7 +981,9 @@ $('#settings-save-btn').addEventListener('click', async () => {
     status.textContent = '✅ Settings saved!';
     status.style.color = 'var(--success)';
     status.hidden = false;
-    setTimeout(() => { status.hidden = true; }, 3000);
+    setTimeout(() => {
+      status.hidden = true;
+    }, 3000);
   } catch (err) {
     status.textContent = '❌ Failed to save settings';
     status.style.color = 'var(--danger)';

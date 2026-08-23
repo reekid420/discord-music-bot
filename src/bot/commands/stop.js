@@ -10,11 +10,17 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   const vc = getMemberVoiceChannel(interaction.member);
   if (!vc || !isInSameVC(interaction.member, interaction.client)) {
-    return interaction.reply({ content: '❌ You need to be in the same voice channel.', ephemeral: true });
+    return interaction.reply({
+      content: '❌ You need to be in the same voice channel.',
+      ephemeral: true,
+    });
   }
 
   if (!isDJ(interaction.member)) {
-    return interaction.reply({ content: '❌ Only DJs and admins can stop the bot.', ephemeral: true });
+    return interaction.reply({
+      content: '❌ Only DJs and admins can stop the bot.',
+      ephemeral: true,
+    });
   }
 
   const queue = useQueue(interaction.guildId);

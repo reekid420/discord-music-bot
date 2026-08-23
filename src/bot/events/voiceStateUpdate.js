@@ -14,7 +14,8 @@ export async function execute(oldState, newState) {
   const guild = oldState.guild || newState.guild;
 
   // User left a voice channel or moved to a different one
-  const leftChannel = oldState.channel && (!newState.channel || oldState.channelId !== newState.channelId);
+  const leftChannel =
+    oldState.channel && (!newState.channel || oldState.channelId !== newState.channelId);
 
   if (leftChannel && oldState.channel) {
     const userId = oldState.member?.id;
@@ -52,7 +53,7 @@ export async function execute(oldState, newState) {
     const botMember = guild.members.cache.get(client.user.id);
     const botVC = botMember?.voice?.channel;
     if (botVC && botVC.id === oldState.channelId) {
-      const nonBotMembers = botVC.members.filter(m => !m.user.bot);
+      const nonBotMembers = botVC.members.filter((m) => !m.user.bot);
       if (nonBotMembers.size === 0) {
         const player = client.player;
         const queue = player?.queues?.get(guildId);

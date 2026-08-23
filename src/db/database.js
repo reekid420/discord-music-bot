@@ -54,32 +54,46 @@ export function getGuildSettings(guildId) {
 export function updateGuildSettings(guildId, settings) {
   const current = getGuildSettings(guildId);
   const merged = { ...current, ...settings };
-  getDb().prepare(`
+  getDb()
+    .prepare(
+      `
     UPDATE guild_settings SET
       dj_role_id = ?,
       vote_threshold = ?,
       auto_leave_s = ?,
       default_volume = ?
     WHERE guild_id = ?
-  `).run(merged.dj_role_id, merged.vote_threshold, merged.auto_leave_s, merged.default_volume, guildId);
+  `
+    )
+    .run(
+      merged.dj_role_id,
+      merged.vote_threshold,
+      merged.auto_leave_s,
+      merged.default_volume,
+      guildId
+    );
   return getGuildSettings(guildId);
 }
 
 // ─── Playlists ───
 
 export function createPlaylist(ownerId, name, guildId = null) {
-  const result = getDb().prepare(
-    'INSERT INTO playlists (owner_id, name, guild_id) VALUES (?, ?, ?)'
-  ).run(ownerId, name, guildId);
+  const result = getDb()
+    .prepare('INSERT INTO playlists (owner_id, name, guild_id) VALUES (?, ?, ?)')
+    .run(ownerId, name, guildId);
   return getDb().prepare('SELECT * FROM playlists WHERE id = ?').get(result.lastInsertRowid);
 }
 
 export function getUserPlaylists(ownerId) {
-  return getDb().prepare('SELECT * FROM playlists WHERE owner_id = ? ORDER BY created_at DESC').all(ownerId);
+  return getDb()
+    .prepare('SELECT * FROM playlists WHERE owner_id = ? ORDER BY created_at DESC')
+    .all(ownerId);
 }
 
 export function getPlaylistByName(ownerId, name) {
-  return getDb().prepare('SELECT * FROM playlists WHERE owner_id = ? AND name = ?').get(ownerId, name);
+  return getDb()
+    .prepare('SELECT * FROM playlists WHERE owner_id = ? AND name = ?')
+    .get(ownerId, name);
 }
 
 /**
@@ -87,7 +101,9 @@ export function getPlaylistByName(ownerId, name) {
  * Returns the first match (prefers exact case).
  */
 export function getPlaylistByNameGlobal(name) {
-  return getDb().prepare('SELECT * FROM playlists WHERE name = ? ORDER BY created_at DESC').get(name);
+  return getDb()
+    .prepare('SELECT * FROM playlists WHERE name = ? ORDER BY created_at DESC')
+    .get(name);
 }
 
 export function getPlaylistById(id) {
@@ -107,7 +123,9 @@ export function updatePlaylist(id, updates) {
     getDb().prepare('UPDATE playlists SET name = ? WHERE id = ?').run(updates.name, id);
   }
   if (updates.is_public !== undefined) {
-    getDb().prepare('UPDATE playlists SET is_public = ? WHERE id = ?').run(updates.is_public ? 1 : 0, id);
+    getDb()
+      .prepare('UPDATE playlists SET is_public = ? WHERE id = ?')
+      .run(updates.is_public ? 1 : 0, id);
   }
   return getPlaylistById(id);
 }
@@ -115,21 +133,30 @@ export function updatePlaylist(id, updates) {
 // ─── Playlist Tracks ───
 
 export function getPlaylistTracks(playlistId) {
-  return getDb().prepare(
-    'SELECT * FROM playlist_tracks WHERE playlist_id = ? ORDER BY track_order ASC'
-  ).all(playlistId);
+  return getDb()
+    .prepare('SELECT * FROM playlist_tracks WHERE playlist_id = ? ORDER BY track_order ASC')
+    .all(playlistId);
 }
 
 export function addPlaylistTrack(playlistId, track) {
   // Get next order value
-  const last = getDb().prepare(
-    'SELECT MAX(track_order) as max_order FROM playlist_tracks WHERE playlist_id = ?'
-  ).get(playlistId);
+  const last = getDb()
+    .prepare('SELECT MAX(track_order) as max_order FROM playlist_tracks WHERE playlist_id = ?')
+    .get(playlistId);
   const order = (last?.max_order ?? 0) + 1;
 
-  return getDb().prepare(
-    'INSERT INTO playlist_tracks (playlist_id, title, url, duration_ms, thumbnail, track_order) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(playlistId, track.title, track.url, track.duration_ms || null, track.thumbnail || null, order);
+  return getDb()
+    .prepare(
+      'INSERT INTO playlist_tracks (playlist_id, title, url, duration_ms, thumbnail, track_order) VALUES (?, ?, ?, ?, ?, ?)'
+    )
+    .run(
+      playlistId,
+      track.title,
+      track.url,
+      track.duration_ms || null,
+      track.thumbnail || null,
+      order
+    );
 }
 
 export function removePlaylistTrack(trackId) {
@@ -139,9 +166,9 @@ export function removePlaylistTrack(trackId) {
 // ─── Local Files ───
 
 export function addLocalFile(file) {
-  const result = getDb().prepare(
-    'INSERT INTO local_files (filename, filepath, title, duration_ms) VALUES (?, ?, ?, ?)'
-  ).run(file.filename, file.filepath, file.title || file.filename, file.duration_ms || null);
+  const result = getDb()
+    .prepare('INSERT INTO local_files (filename, filepath, title, duration_ms) VALUES (?, ?, ?, ?)')
+    .run(file.filename, file.filepath, file.title || file.filename, file.duration_ms || null);
   return getDb().prepare('SELECT * FROM local_files WHERE id = ?').get(result.lastInsertRowid);
 }
 
@@ -165,7 +192,9 @@ export function createSession(token, expiresAt) {
 
 export function getSession(token) {
   const now = Math.floor(Date.now() / 1000);
-  return getDb().prepare('SELECT * FROM sessions WHERE token = ? AND expires_at > ?').get(token, now);
+  return getDb()
+    .prepare('SELECT * FROM sessions WHERE token = ? AND expires_at > ?')
+    .get(token, now);
 }
 
 export function deleteSession(token) {

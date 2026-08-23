@@ -1,8 +1,13 @@
 import crypto from 'crypto';
-import { createSession, getSession, deleteSession, cleanExpiredSessions } from '../../db/database.js';
+import {
+  createSession,
+  getSession,
+  deleteSession,
+  cleanExpiredSessions,
+} from '../../db/database.js';
 
-const SESSION_DURATION = 24 * 60 * 60; // 24 hours in seconds
-const COOKIE_NAME = 'miyabi_session';
+export const SESSION_DURATION = 24 * 60 * 60; // seconds
+export const COOKIE_NAME = 'miyabi_session';
 
 /**
  * Login route handler. Checks password, creates session.

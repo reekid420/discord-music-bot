@@ -1,13 +1,16 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { QueryType } from 'discord-player';
 import { getMemberVoiceChannel } from '../utils/permissions.js';
-import { isYouTubePlaylistUrl, pickSearchEngine } from '../utils/urlHelpers.js';
+import { pickSearchEngine } from '../utils/urlHelpers.js';
 
 export const data = new SlashCommandBuilder()
   .setName('play')
-  .setDescription('Search for a song or provide a link from YouTube, SoundCloud, Spotify, or TikTok')
-  .addStringOption(opt =>
-    opt.setName('query')
+  .setDescription(
+    'Search for a song or provide a link from YouTube, SoundCloud, Spotify, or TikTok'
+  )
+  .addStringOption((opt) =>
+    opt
+      .setName('query')
       .setDescription('Search for a song, or paste a URL — YouTube playlists are also supported')
       .setRequired(true)
   );
@@ -44,8 +47,8 @@ export async function execute(interaction) {
       searchEngine,
     });
 
-    const isPlaylistResult = !!(result.searchResult?.playlist);
-    const embed = new EmbedBuilder().setColor(0x7C3AED).setTimestamp();
+    const isPlaylistResult = !!result.searchResult?.playlist;
+    const embed = new EmbedBuilder().setColor(0x7c3aed).setTimestamp();
 
     if (isPlaylistResult) {
       const pl = result.searchResult.playlist;
@@ -56,7 +59,7 @@ export async function execute(interaction) {
         .addFields(
           { name: 'Tracks', value: `${trackCount}`, inline: true },
           { name: 'Requested by', value: interaction.user.tag, inline: true },
-          { name: 'Source', value: pl.source || 'YouTube', inline: true },
+          { name: 'Source', value: pl.source || 'YouTube', inline: true }
         )
         .setThumbnail(pl.thumbnail || result.track?.thumbnail || null);
     } else {
@@ -67,7 +70,7 @@ export async function execute(interaction) {
         .addFields(
           { name: 'Duration', value: track.duration || 'Live', inline: true },
           { name: 'Requested by', value: interaction.user.tag, inline: true },
-          { name: 'Source', value: track.source || 'Unknown', inline: true },
+          { name: 'Source', value: track.source || 'Unknown', inline: true }
         )
         .setThumbnail(track.thumbnail || null);
     }

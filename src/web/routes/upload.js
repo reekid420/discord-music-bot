@@ -1,9 +1,14 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { join, resolve, extname } from 'path';
+import { resolve, extname } from 'path';
 import { mkdirSync, unlinkSync } from 'fs';
 import crypto from 'crypto';
-import { addLocalFile, getAllLocalFiles, getLocalFileById, deleteLocalFile } from '../../db/database.js';
+import {
+  addLocalFile,
+  getAllLocalFiles,
+  getLocalFileById,
+  deleteLocalFile,
+} from '../../db/database.js';
 
 const ALLOWED_EXTENSIONS = ['.mp3', '.flac', '.wav', '.ogg', '.m4a', '.opus', '.webm'];
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
@@ -95,8 +100,11 @@ export function uploadRoutes(client) {
     if (!guild) return res.status(404).json({ error: 'Guild not found' });
 
     const botMember = guild.members.cache.get(client.user.id);
-    const vc = botMember?.voice?.channel
-      || guild.channels.cache.find(c => c.isVoiceBased() && c.members.filter(m => !m.user.bot).size > 0);
+    const vc =
+      botMember?.voice?.channel ||
+      guild.channels.cache.find(
+        (c) => c.isVoiceBased() && c.members.filter((m) => !m.user.bot).size > 0
+      );
 
     if (!vc) return res.status(400).json({ error: 'No voice channel to join' });
 

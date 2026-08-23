@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { useQueue } from 'discord-player';
-import { progressBar, formatDuration } from '../utils/formatters.js';
+import { progressBar } from '../utils/formatters.js';
 
 export const data = new SlashCommandBuilder()
   .setName('nowplaying')
@@ -16,7 +16,7 @@ export async function execute(interaction) {
   const progress = queue.node.getTimestamp();
 
   const embed = new EmbedBuilder()
-    .setColor(0x7C3AED)
+    .setColor(0x7c3aed)
     .setTitle('🎶 Now Playing')
     .setDescription(`[${track.title}](${track.url})`)
     .addFields(
@@ -27,7 +27,7 @@ export async function execute(interaction) {
       {
         name: 'Progress',
         value: `${progress?.current?.label || '0:00'} ${progressBar(progress?.current?.value || 0, progress?.total?.value || 0)} ${progress?.total?.label || '0:00'}`,
-      },
+      }
     )
     .setThumbnail(track.thumbnail || null)
     .setFooter({

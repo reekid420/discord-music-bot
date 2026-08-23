@@ -19,7 +19,7 @@ function ytdlpOptions(extra = {}) {
 //  - https://www.tiktok.com/music/<slug>-<id>/  (sound share pages)
 //  - https://www.tiktok.com/audio/<slug>-<id>/  (alternate sound path)
 const TIKTOK_URL_RE =
-  /https?:\/\/(?:www\.)?tiktok\.com\/(?:@[\w.\-]+\/video\/\d+|t\/\w+|music\/[\w%\-.]*\d{10,}|audio\/[\w%\-.]*\d{10,})/i;
+  /https?:\/\/(?:www\.)?tiktok\.com\/(?:@[\w.-]+\/video\/\d+|t\/\w+|music\/[\w%.-]*\d{10,}|audio\/[\w%.-]*\d{10,})/i;
 const SHORT_URL_RE = /https?:\/\/v[mt]\.tiktok\.com\/\w+/i;
 const MUSIC_URL_RE = /tiktok\.com\/(?:music|audio)\//i;
 
@@ -31,7 +31,7 @@ const MUSIC_URL_RE = /tiktok\.com\/(?:music|audio)\//i;
  */
 async function resolveMusicPage(url, limit = 5) {
   // normalize: keep only slug-<id>, strip query
-  const m = url.match(/(?:music|audio)\/([\w%.\-]*\d{10,})/i);
+  const m = url.match(/(?:music|audio)\/([\w%.-]*\d{10,})/i);
   if (!m) return [];
   const embedUrl = `https://www.tiktok.com/embed/music/${m[1]}`;
   try {
@@ -48,7 +48,7 @@ async function resolveMusicPage(url, limit = 5) {
     const html = await res.text();
     const seen = new Set();
     const out = [];
-    for (const match of html.matchAll(/https:\/\/www\.tiktok\.com\/@([\w.\-]+)\/video\/(\d+)/g)) {
+    for (const match of html.matchAll(/https:\/\/www\.tiktok\.com\/@([\w.-]+)\/video\/(\d+)/g)) {
       const link = `https://www.tiktok.com/@${match[1]}/video/${match[2]}`;
       if (!seen.has(link)) {
         seen.add(link);
@@ -67,12 +67,12 @@ async function resolveMusicPage(url, limit = 5) {
 export class TikTokExtractor extends BaseExtractor {
   static identifier = 'TikTokExtractor';
 
-  async validate(query, type) {
+  async validate(query, _type) {
     if (typeof query !== 'string') return false;
     return TIKTOK_URL_RE.test(query) || SHORT_URL_RE.test(query);
   }
 
-  async getRelatedTracks(track, history) {
+  async getRelatedTracks(_track, _history) {
     return this.createResponse();
   }
 
@@ -90,7 +90,7 @@ export class TikTokExtractor extends BaseExtractor {
           try {
             const data = await youtubeDl(v.url, ytdlpOptions({ dumpJson: true, noPlaylist: true }));
             if (!data) continue;
-            tracks.push(this.#makeTrack(data, context));
+            tracks.push(this.#makeTrack(data, context, v.url));
             if (tracks.length >= 3) break; // top 3 uses of the sound is plenty
           } catch (err) {
             writeVerboseLog('TikTokExtractor', `Skipping ${v.url}: ${err.message?.split('\n')[0]}`);
@@ -107,8 +107,11 @@ export class TikTokExtractor extends BaseExtractor {
         return this.createResponse();
       }
 
-      writeVerboseLog('TikTokExtractor', `Successfully fetched data for ${query}. Track: ${data.title}`);
-      return this.createResponse(null, [this.#makeTrack(data, context)]);
+      writeVerboseLog(
+        'TikTokExtractor',
+        `Successfully fetched data for ${query}. Track: ${data.title}`
+      );
+      return this.createResponse(null, [this.#makeTrack(data, context, query)]);
     } catch (error) {
       writeVerboseLog('TikTokExtractor', `Validation/Extraction Error: ${error.stack || error}`);
       console.error(`[TikTokExtractor] Failed to search: ${error.message?.split('\n')[0]}`);
@@ -116,12 +119,12 @@ export class TikTokExtractor extends BaseExtractor {
     }
   }
 
-  #makeTrack(data, context) {
+  #makeTrack(data, context, fallbackUrl) {
     const track = new Track(this.context.player, {
       title: data.title || 'TikTok Video',
       description: data.description || '',
       author: data.uploader || data.creator || 'TikToker',
-      url: data.webpage_url || query,
+      url: data.webpage_url || fallbackUrl,
       thumbnail: data.thumbnail || '',
       duration: (data.duration ? Math.floor(data.duration) : 0).toString(),
       views: data.view_count || 0,
@@ -139,10 +142,13 @@ export class TikTokExtractor extends BaseExtractor {
   async stream(info) {
     writeVerboseLog('TikTokExtractor', `Requested stream extraction for: ${info.url}`);
     try {
-      const stream = youtubeDl.exec(info.url, ytdlpOptions({
-        output: '-',
-        format: 'bestaudio/best',
-      }));
+      const stream = youtubeDl.exec(
+        info.url,
+        ytdlpOptions({
+          output: '-',
+          format: 'bestaudio/best',
+        })
+      );
 
       stream.stderr.on('data', (data) => {
         writeVerboseLog('TikTokExtractor:ytdlp', data.toString().trim());

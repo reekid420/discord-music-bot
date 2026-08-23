@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { useQueue, QueryType } from 'discord-player';
+import { QueryType } from 'discord-player';
 import { emitPlayerState } from '../server.js';
 
 // Detect YouTube playlist URLs to choose AUTO vs YOUTUBE_SEARCH
@@ -10,7 +10,9 @@ function pickSearchEngine(query) {
       (u.hostname === 'youtube.com' || u.hostname === 'www.youtube.com') &&
       u.searchParams.has('list');
     if (isYtPlaylist) return QueryType.AUTO;
-  } catch { /* not a URL */ }
+  } catch {
+    /* not a URL */
+  }
   if (/^https?:\/\//i.test(query)) return QueryType.AUTO;
   return QueryType.YOUTUBE_SEARCH;
 }
@@ -32,7 +34,7 @@ export function playerRoutes(client, io) {
       const result = await client.player.search(query, {
         searchEngine: QueryType.YOUTUBE_SEARCH,
       });
-      const tracks = (result.tracks || []).slice(0, 5).map(t => ({
+      const tracks = (result.tracks || []).slice(0, 5).map((t) => ({
         title: t.title,
         url: t.url,
         durationMs: t.durationMS,
@@ -90,14 +92,16 @@ export function playerRoutes(client, io) {
     if (!guild) return res.status(404).json({ error: 'Guild not found' });
 
     // Only fetch the bot member if it's not already cached — avoids a full guild member fetch
-    const botMember = guild.members.cache.get(client.user.id)
-      || await guild.members.fetch(client.user.id).catch(() => null);
+    const botMember =
+      guild.members.cache.get(client.user.id) ||
+      (await guild.members.fetch(client.user.id).catch(() => null));
 
     // Prefer channel bot is already in, else find first channel with real (non-bot) members
-    const vc = botMember?.voice?.channel
-      || guild.channels.cache.find(
-          c => c.isVoiceBased() && c.members.filter(m => !m.user.bot).size > 0
-        );
+    const vc =
+      botMember?.voice?.channel ||
+      guild.channels.cache.find(
+        (c) => c.isVoiceBased() && c.members.filter((m) => !m.user.bot).size > 0
+      );
 
     if (!vc) {
       return res.status(400).json({
@@ -117,7 +121,7 @@ export function playerRoutes(client, io) {
         searchEngine: pickSearchEngine(query),
       });
 
-      const isPlaylist = !!(result.searchResult?.playlist);
+      const isPlaylist = !!result.searchResult?.playlist;
       if (isPlaylist) {
         const pl = result.searchResult.playlist;
         const count = result.searchResult.tracks.length;

@@ -29,7 +29,7 @@ export function getVoteState(guildId) {
  * @returns {{ eligible: number, required: number }}
  */
 export function calculateThreshold(voiceChannel, threshold = 0.51) {
-  const eligible = voiceChannel.members.filter(m => !m.user.bot).size;
+  const eligible = voiceChannel.members.filter((m) => !m.user.bot).size;
   const required = Math.max(1, Math.ceil(eligible * threshold));
   return { eligible, required };
 }
