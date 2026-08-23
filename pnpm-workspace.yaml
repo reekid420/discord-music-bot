@@ -1,3 +1,10 @@
+allowBuilds:
+  '@discordjs/opus': true
+  better-sqlite3: true
+  canvas: true
+  esbuild: true
+  ffmpeg-static: true
+  youtube-dl-exec: true
 onlyBuiltDependencies:
   - '@discordjs/opus'
   - '@lng2004/node-datachannel'
@@ -11,3 +18,5 @@ onlyBuiltDependencies:
   - sharp
   - youtube-dl-exec
   - zeromq
+overrides:
+  youtubei.js: ^18.0.0

@@ -49,6 +49,7 @@ cp .env.example .env
 # CLIENT_ID=<your application ID>
 # GUILD_ID=<your server ID>  (optional)
 # DASHBOARD_PASSWORD=<pick a strong password>
+# TIKTOK_COOKIES_FILE=<path to cookies file>  (optional — for age-gated TikToks)
 ```
 
 ## 6. Install Dependencies (Debian 13)
@@ -121,7 +122,7 @@ Enter the password you set in `DASHBOARD_PASSWORD`.
 |---|---|
 | Bot not responding to commands | Run `node src/bot/deploy-commands.js` again |
 | "Missing Access" error | Re-invite bot with correct permissions (Step 3) |
-| Audio cutting out | Check ffmpeg is installed: `ffmpeg -version` |
+| Audio cutting out / silent playback | Check ffmpeg: `ffmpeg -version`. If using systemd, also set `Environment=FFMPEG_BIN=/usr/bin/ffmpeg` in the unit (bundled ffmpeg-static can segfault on some hosts) |
 | YouTube 403 errors | Usually temporary; SoundCloud fallback should work |
 | Dashboard won't connect | Check firewall allows port 3000 |
 | `opusscript` errors | Install native opus: `sudo apt install libopus0` |

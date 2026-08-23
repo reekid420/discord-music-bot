@@ -16,7 +16,7 @@ All 15 slash commands, their permission requirements, and usage notes.
 ### `/play <query>`
 **Who:** Anyone in VC
 
-Accepts: YouTube URL, SoundCloud URL, Spotify track/album/playlist URL, TikTok video URL, plain search text, or a file attachment. Joins your voice channel automatically. If the queue is empty, playback starts immediately.
+Accepts: YouTube URL (incl. playlists), SoundCloud URL, Spotify track/album/playlist URL, TikTok video URL (regular, `vt.`/`vm.`/`/t/` short links, and `/music/…` sound-share pages — sound pages queue the top 3 videos using that sound), plain search text, or a file attachment. Joins your voice channel automatically. If the queue is empty, playback starts immediately.
 
 ### `/pause`
 **Who:** Anyone in VC

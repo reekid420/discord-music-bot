@@ -68,11 +68,24 @@ pm2 monit                    # Real-time CPU / memory dashboard
 ## systemd (Alternative to PM2)
 
 A pre-written unit file is included at `groove-bot.service` in the project root.
+The production deployment on this host uses `dj-miyabi.service` in
+`/etc/systemd/system/` (same content plus the ffmpeg override below).
 
 Before installing, edit the file and set:
 - `User=` — the Linux user that will run the bot
 - `WorkingDirectory=` — absolute path to the project root (e.g. `/home/youruser/discord-bot`)
 - `ExecStart=` — absolute path to `node` (run `which node` to find it)
+
+**Required: force system ffmpeg.** The bundled `ffmpeg-static` binary can
+segfault on some hosts when reading YouTube/TikTok stream URLs (verified cause of
+a "joins VC but no audio" outage in Aug 2026). Add to the `[Service]` section:
+
+```ini
+Environment=FFMPEG_BIN=/usr/bin/ffmpeg
+```
+
+(`FFMPEG_PATH` does not work — prism-media and @discord-player/ffmpeg ignore it;
+the `ffmpeg-static` module honors `FFMPEG_BIN` and exports the system path.)
 
 ```bash
 sudo cp groove-bot.service /etc/systemd/system/
@@ -131,7 +144,7 @@ sudo ufw allow from <your-ip> to any port 3000
 | Bot not responding to slash commands | Commands not registered | Run `node src/bot/deploy-commands.js` |
 | "Missing Access" on bot invite | Incorrect permissions | Re-invite via OAuth2 URL Generator (see SETUP.md) |
 | `DISCORD_TOKEN` error at startup | Missing or wrong env var | Check `.env` exists and has correct values |
-| Audio cuts out immediately | ffmpeg not found | `ffmpeg -version`; ensure it's on `PATH` |
+| Audio cuts out immediately / silent playback | ffmpeg missing or bundled ffmpeg-static segfaulting | `ffmpeg -version`; set `Environment=FFMPEG_BIN=/usr/bin/ffmpeg` in the unit and restart |
 | YouTube 403 / stream errors | YouTube bot detection | Usually transient; try again or use SoundCloud link |
 | TikTok URL not playing | Private or region-blocked video | Only public TikTok videos are supported |
 | Dashboard unreachable | Firewall blocking port | `sudo ufw allow 3000/tcp` |

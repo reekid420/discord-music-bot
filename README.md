@@ -15,7 +15,7 @@ Dashboard: `http://localhost:3000`
 
 ## Key Features
 
-- **Multi-source playback** — YouTube (yt-dlp), SoundCloud, Spotify bridge, TikTok, uploaded files
+- **Multi-source playback** — YouTube (yt-dlp), SoundCloud, Spotify bridge, TikTok (videos, short links, and `/music/` sound pages), uploaded files
 - **15 slash commands** — play, skip, queue, vote-skip, playlists, extract, and more
 - **DJ role system** — configurable per-guild role restricts sensitive commands
 - **Smart vote-skip** — 51% democratic threshold with full edge case handling
@@ -32,6 +32,7 @@ Dashboard: `http://localhost:3000`
 | [docs/DASHBOARD.md](docs/DASHBOARD.md)       | Web dashboard views, API reference, Socket.io events            |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Project structure, tech stack, database schema, developer notes |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)     | PM2, systemd, server requirements, troubleshooting              |
+| [docs/CHANGELOG-2026-08.md](docs/CHANGELOG-2026-08.md) | Aug 2026 fixes: ffmpeg segfault, TikTok sound pages, log rotation |
 
 ## Tech Stack
 

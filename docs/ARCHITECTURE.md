@@ -1,3 +1,4 @@
+Warning: Identity file /home/reekid/.ssh/id_25519 not accessible: No such file or directory.
 # Architecture
 
 Technical overview of the DJ Miyabi codebase — structure, design decisions, database schema, and developer notes.
@@ -54,7 +55,8 @@ discord-bot/
 │   │   │   └── voiceStateUpdate.js # Removes votes when users leave VC; handles auto-leave
 │   │   ├── player/
 │   │   │   ├── setup.js            # Creates Player, registers extractors, wires player events
-│   │   │   └── TikTokExtractor.js  # Custom extractor using @tobyg74/tiktok-api-dl
+│   │   │   ├── YoutubeDlpExtractor.js # YouTube search/video/playlist via yt-dlp (youtube-dl-exec)
+│   │   │   └── TikTokExtractor.js  # Custom extractor: yt-dlp + embed-page resolution for sound URLs
 │   │   └── utils/
 │   │       ├── voteSkip.js         # Vote-skip state machine (per-guild Map)
 │   │       ├── permissions.js      # isDJ(), getMemberVoiceChannel(), isInSameVC()
@@ -95,10 +97,10 @@ discord-bot/
 | Runtime                      | Node.js                        | 22 LTS  | ES Modules throughout                          |
 | Discord                      | `discord.js`                   | ^14.26  | Slash commands, voice intents                  |
 | Audio engine                 | `discord-player`               | ^7.2    | Modular extractor system                       |
-| YouTube                      | `discord-player-youtubei`      | ^2.0    | Routed through `yt-dlp` (`useYoutubeDL: true`) |
+| YouTube                      | Custom `YoutubeDlpExtractor`   | —       | yt-dlp (`youtube-dl-exec`) — direct stream URLs |
 | SoundCloud / Spotify / Files | `@discord-player/extractor`    | ^7.2    | `DefaultExtractors` bundle                     |
 | TikTok                       | Custom `TikTokExtractor`       | —       | `@tobyg74/tiktok-api-dl`                       |
-| Audio codec                  | `opusscript` + `ffmpeg-static` | —       | Opus encoding; bundled ffmpeg                  |
+| Audio codec                  | `opusscript` + system `ffmpeg` | —       | Opus encoding; requires `FFMPEG_BIN=/usr/bin/ffmpeg` (see DEPLOYMENT.md) |
 | Database                     | `better-sqlite3`               | ^12.8   | Synchronous SQLite, WAL mode                   |
 | Web server                   | `express`                      | ^5.2    | REST API                                       |
 | WebSockets                   | `socket.io`                    | ^4.8    | Real-time dashboard                            |
@@ -189,8 +191,12 @@ CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist ON playlist_tracks(playl
 `discord-player` tries extractors in the order they were registered. Current order in `src/bot/player/setup.js`:
 
 1. `DefaultExtractors` — SoundCloud, Spotify bridge, file attachments
-2. `TikTokExtractor` — custom TikTok
-3. `YoutubeiExtractor` — YouTube via yt-dlp
+2. `TikTokExtractor` — custom TikTok (yt-dlp + embed-page sound resolution)
+3. `YoutubeDlpExtractor` — YouTube via yt-dlp (youtube-dl-exec)
+
+> Note: `discord-player-youtubei` was removed from the runtime path in Aug 2026 —
+> its stream URLs silently failed. The package remains in `package.json` but is
+> not registered with the player.
 
 To change priority, reorder the `register` / `loadMulti` calls in `setup.js`.
 

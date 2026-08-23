@@ -1,8 +1,8 @@
 import { Player } from 'discord-player';
-import { YoutubeiExtractor, Log } from 'discord-player-youtubei';
 import { DefaultExtractors } from '@discord-player/extractor';
 import { TikTokExtractor } from './TikTokExtractor.js';
 import { writeVerboseLog } from '../utils/logger.js';
+import { YoutubeDlpExtractor } from './YoutubeDlpExtractor.js';
 
 /**
  * Set up the discord-player instance with all extractors.
@@ -10,9 +10,6 @@ import { writeVerboseLog } from '../utils/logger.js';
  * @returns {Player}
  */
 export async function setupPlayer(client) {
-  // Silence all youtubei.js internal logs (Text/Parser/Player parser warnings)
-  Log.setLevel(Log.Level.NONE);
-
   const player = new Player(client, {
     skipFFmpeg: false,
   });
@@ -23,15 +20,10 @@ export async function setupPlayer(client) {
   // Register custom TikTok extractor
   await player.extractors.register(TikTokExtractor, {});
 
-  // Register YouTubei for YouTube support.
-  // useYoutubeDL: true routes audio through yt-dlp (youtube-dl-exec, already installed)
-  // which handles YouTube's signature cipher/throttling far more reliably than the
-  // internal youtubei.js stream API. The IOS-client workaround still fails for many
-  // tracks because youtube.js has its own issues independent of the client type.
-  await player.extractors.register(YoutubeiExtractor, {
-    useYoutubeDL: true,
-    ignoreSignInErrors: true,
-  });
+  // YouTube via yt-dlp (youtube-dl-exec). Replaces discord-player-youtubei:
+  // youtubei.js stream URLs fail to play (silent fall-through, no audio), while
+  // yt-dlp's URLs verified working from this host (curl 200 on googlevideo).
+  await player.extractors.register(YoutubeDlpExtractor, {});
 
   console.log('[Player] All extractors registered');
 
