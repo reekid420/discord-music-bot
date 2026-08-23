@@ -4,3 +4,4 @@ data/
 uploads/
 *.log
 logs/
+Screenshot_*.png
