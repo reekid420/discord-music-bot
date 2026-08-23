@@ -42,49 +42,69 @@ This avoids needing Redis or a message broker for a typical 1–5 server deploym
 ## Project Structure
 
 ```
-discord-bot/
+discord-music-bot/
 ├── src/
 │   ├── bot/
 │   │   ├── index.js                # Entry point: env validation, DB init, player setup, boot
 │   │   ├── deploy-commands.js      # One-shot: registers slash commands with Discord API
-│   │   ├── commands/               # One file per slash command (15 total)
+│   │   ├── commands/               # One file per slash command (17 total, incl. lyrics, replay)
 │   │   ├── events/
 │   │   │   ├── ready.js            # Sets bot activity status on login
 │   │   │   ├── interactionCreate.js# Dispatches slash commands to handlers
-│   │   │   └── voiceStateUpdate.js # Removes votes when users leave VC; handles auto-leave
+│   │   │   └── voiceStateUpdate.js # Removes votes when users leave VC; auto_leave_s timer
 │   │   ├── player/
-│   │   │   ├── setup.js            # Creates Player, registers extractors, wires player events
-│   │   │   ├── YoutubeDlpExtractor.js # YouTube search/video/playlist via yt-dlp (youtube-dl-exec)
+│   │   │   ├── setup.js            # Creates Player, registers extractors, wires player events,
+│   │   │   │                       #   and captures queue snapshots for /replay
+│   │   │   ├── YoutubeDlpExtractor.js # YouTube search/video/playlist via yt-dlp (cookies + pacing)
 │   │   │   └── TikTokExtractor.js  # Custom extractor: yt-dlp + embed-page resolution for sound URLs
 │   │   └── utils/
 │   │       ├── voteSkip.js         # Vote-skip state machine (per-guild Map)
+│   │       ├── queuePersist.js     # Queue snapshot capture/clear (SQLite-backed)
+│   │       ├── trackDto.js         # Canonical plain-object track shape (shared bot + web)
+│   │       ├── lyrics.js           # lrclib.net lookup + YouTube title cleanup
 │   │       ├── permissions.js      # isDJ(), getMemberVoiceChannel(), isInSameVC()
-│   │       ├── formatters.js       # Duration formatting, progress bar generation
+│   │       ├── formatters.js       # Duration/progress bar, truncate, safeEmbedUrl()
 │   │       └── logger.js           # Verbose debug log writer (to logs/)
 │   ├── web/
-│   │   ├── server.js               # Express app, Socket.io, and bot event bridge
-│   │   ├── middleware/auth.js       # Session cookie auth (login/logout/verify)
-│   │   └── routes/
-│   │       ├── player.js           # /api/player — playback control
-│   │       ├── queue.js            # /api/queue — queue management
-│   │       ├── playlists.js        # /api/playlists — CRUD + enqueue
-│   │       ├── upload.js           # /api/upload — file upload + metadata
-│   │       └── settings.js         # /api/settings — guild config
+│   │   ├── server.js               # Express app, authenticated Socket.io, bot event bridge
+│   │   ├── helpers.js              # serializeQueue, getGuildQueue, resolveVoiceChannel,
+│   │   │                           #   queueNodeDefaults, emitPlayerState
+│   │   ├── middleware/auth.js      # Session auth: rate-limited login, timing-safe compare,
+│   │   │                           #   fail-closed password, secure-cookie opt-in
+│   │   ├── routes/                 # All factories follow the (client) => Router convention
+│   │   │   ├── player.js           # /api/player — playback control
+│   │   │   ├── queue.js            # /api/queue — queue management
+│   │   │   ├── playlists.js        # /api/playlists — CRUD + enqueue + YouTube import
+│   │   │   ├── upload.js           # /api/upload — upload + mediaplex content probing
+│   │   │   ├── settings.js         # /api/settings — guild config
+│   │   │   └── guilds.js           # /api/guilds — guild listing
 │   │   └── public/
 │   │       ├── index.html          # SPA shell (5 views)
 │   │       ├── css/styles.css      # Dark theme, glassmorphism, responsive layout
-│   │       └── js/app.js           # Auth, Socket.io client, all view controllers
+│   │       └── js/                 # ES modules (type="module", no build step)
+│   │           ├── main.js         # Entry: auth, guilds, navigation, socket wiring
+│   │           ├── state.js        # Shared state + DOM/format helpers
+│   │           ├── socket.js       # Socket.io client (session-authenticated handshake)
+│   │           ├── nowPlaying.js   # Now-playing view, scrubber, transport controls
+│   │           ├── queueView.js    # Queue list rendering
+│   │           ├── playback.js     # Search bar → /api/player/play
+│   │           ├── playlistView.js # Playlists view
+│   │           ├── uploadView.js   # Upload view (drag & drop, progress)
+│   │           └── settingsView.js # Settings view
 │   └── db/
 │       ├── database.js             # SQLite init, WAL mode, auto-migrations, CRUD helpers
 │       └── schema.sql              # Reference schema (auto-applied on startup)
+├── test/                           # vitest suite (db, auth, utils)
 ├── uploads/                        # Uploaded audio files (gitignored)
-├── data/                           # SQLite .db file (gitignored)
+├── data/                           # SQLite .db + yt-dlp cookie files (gitignored)
 ├── logs/                           # PM2 / verbose logs
 ├── docs/                           # You are here
 ├── .env / .env.example
+├── eslint.config.js                # ESLint 9 flat config (npm run lint)
+├── .prettierrc                     # Prettier (npm run format)
 ├── package.json                    # ES module ("type": "module"), pnpm
 ├── pm2.ecosystem.config.cjs        # PM2 production config
-└── dj-miyabi.service              # Systemd unit file (alternative to PM2)
+└── dj-miyabi.service               # Systemd unit file (production uses this)
 ```
 
 ---
@@ -164,10 +184,33 @@ CREATE TABLE IF NOT EXISTS sessions (
   expires_at INTEGER NOT NULL                    -- Unix timestamp; checked on each request
 );
 
+-- Persistent queue snapshots (restored with /replay; survive restarts and /stop)
+CREATE TABLE IF NOT EXISTS queue_snapshots (
+  guild_id  TEXT PRIMARY KEY,
+  payload   TEXT NOT NULL,                       -- JSON: { current, position, tracks, volume }
+  saved_at  INTEGER DEFAULT (unixepoch())
+);
+
 CREATE INDEX IF NOT EXISTS idx_playlists_owner          ON playlists(owner_id);
 CREATE INDEX IF NOT EXISTS idx_playlists_guild          ON playlists(guild_id);
 CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist ON playlist_tracks(playlist_id);
 ```
+
+---
+
+## Development Tooling
+
+| Command            | What it does                                    |
+| ------------------ | ----------------------------------------------- |
+| `npm run lint`     | ESLint 9 (flat config) — must pass before commit |
+| `npm run lint:fix` | Auto-fix lint issues                            |
+| `npm run format`   | Prettier over the repo                          |
+| `npm test`         | vitest suite (`test/`) — db, auth, formatters, urlHelpers, voteSkip |
+| `pnpm deploy`      | Register slash commands with Discord (guild-instant if `GUILD_ID` set) |
+
+CI-style verification before deploying: `npm run lint && npm test`, then a
+module-graph smoke boot (`node` importing `src/web/server.js` with a fake
+client) — see `AGENTS.md`.
 
 ---
 

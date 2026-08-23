@@ -77,16 +77,17 @@ Before installing, edit the file and set:
 - `WorkingDirectory=` — absolute path to the project root (e.g. `/home/youruser/discord-bot`)
 - `ExecStart=` — absolute path to `node` (run `which node` to find it)
 
-**Required: force system ffmpeg.** The bundled `ffmpeg-static` binary can
-segfault on some hosts when reading YouTube/TikTok stream URLs (verified cause of
-a "joins VC but no audio" outage in Aug 2026). Add to the `[Service]` section:
+**Required: force system ffmpeg.** The formerly-bundled `ffmpeg-static` binary
+segfaulted on this host when reading YouTube/TikTok stream URLs (verified cause
+of a "joins VC but no audio" outage in Aug 2026); it has since been **removed
+from `package.json` entirely**. yt-dlp and discord-player now use the distro
+ffmpeg, located via `FFMPEG_BIN`. Add to the `[Service]` section:
 
 ```ini
 Environment=FFMPEG_BIN=/usr/bin/ffmpeg
 ```
 
-(`FFMPEG_PATH` does not work — prism-media and @discord-player/ffmpeg ignore it;
-the `ffmpeg-static` module honors `FFMPEG_BIN` and exports the system path.)
+(`FFMPEG_PATH` does not work — prism-media and @discord-player/ffmpeg ignore it.)
 
 ```bash
 sudo cp dj-miyabi.service /etc/systemd/system/
@@ -145,7 +146,9 @@ sudo ufw allow from <your-ip> to any port 3000
 | Bot not responding to slash commands         | Commands not registered                             | Run `node src/bot/deploy-commands.js`                                                   |
 | "Missing Access" on bot invite               | Incorrect permissions                               | Re-invite via OAuth2 URL Generator (see SETUP.md)                                       |
 | `DISCORD_TOKEN` error at startup             | Missing or wrong env var                            | Check `.env` exists and has correct values                                              |
-| Audio cuts out immediately / silent playback | ffmpeg missing or bundled ffmpeg-static segfaulting | `ffmpeg -version`; set `Environment=FFMPEG_BIN=/usr/bin/ffmpeg` in the unit and restart |
+| Audio cuts out immediately / silent playback | ffmpeg missing or wrong binary | `ffmpeg -version`; set `Environment=FFMPEG_BIN=/usr/bin/ffmpeg` in the unit and restart |
+| All TikTok URLs fail with `Usage: yt-dlp [OPTIONS] URL` | Invalid yt-dlp flag injected by an extractor option (e.g. `cookieFile` instead of `cookies`) | Check extractor option names against `yt-dlp --help`; `youtube-dl-exec` maps camelCase → dashed flags |
+| YouTube search: "This content isn't available, try again later" for everything | yt-dlp session rate-limited by YouTube (up to 1 h) | Set `YOUTUBE_COOKIES_FILE=./data/cookies.txt` (Netscape-format cookies) and restart |
 | YouTube 403 / stream errors                  | YouTube bot detection                               | Usually transient; try again or use SoundCloud link                                     |
 | TikTok URL not playing                       | Private or region-blocked video                     | Only public TikTok videos are supported                                                 |
 | Dashboard unreachable                        | Firewall blocking port                              | `sudo ufw allow 3000/tcp`                                                               |

@@ -124,9 +124,19 @@ Enter the password you set in `DASHBOARD_PASSWORD`.
 
 | Issue                               | Solution                                                                                                                                                            |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Bot not responding to commands      | Run `node src/bot/deploy-commands.js` again                                                                                                                         |
+| Bot not responding to commands      | Run `node src/bot/deploy-commands.js` again (or `pnpm deploy`) — **always needed after adding/changing commands**, then restart                                     |
 | "Missing Access" error              | Re-invite bot with correct permissions (Step 3)                                                                                                                     |
-| Audio cutting out / silent playback | Check ffmpeg: `ffmpeg -version`. If using systemd, also set `Environment=FFMPEG_BIN=/usr/bin/ffmpeg` in the unit (bundled ffmpeg-static can segfault on some hosts) |
-| YouTube 403 errors                  | Usually temporary; SoundCloud fallback should work                                                                                                                  |
+| Audio cutting out / silent playback | Check ffmpeg: `ffmpeg -version`. If using systemd, set `Environment=FFMPEG_BIN=/usr/bin/ffmpeg` in the unit                                                          |
+| All TikTok URLs fail                | Extractor yt-dlp flag bug — see DEPLOYMENT.md troubleshooting                                                                                                       |
+| YouTube "content isn't available"   | Rate-limited session — set `YOUTUBE_COOKIES_FILE=./data/cookies.txt`                                                                                                |
 | Dashboard won't connect             | Check firewall allows port 3000                                                                                                                                     |
 | `opusscript` errors                 | Install native opus: `sudo apt install libopus0`                                                                                                                    |
+
+## Development
+
+```bash
+pnpm install          # install deps (pnpm; Node 22+)
+npm run lint          # ESLint — must pass before committing
+npm test              # vitest suite
+npm run dev           # run the bot with --watch
+```

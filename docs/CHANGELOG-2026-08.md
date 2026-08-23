@@ -107,3 +107,58 @@ in any future commit:
 - yt-dlp version on host: 2026.08.19 (current).
 - Known remaining limitation: age-gated TikToks fail until
   `TIKTOK_COOKIES_FILE` is configured.
+
+---
+
+# Session 2 — Aug 23, 2026 (branch `improve/everything`)
+
+Full review + hardening + features. Details live in the git log (8+ commits,
+`main..improve/everything`) and `AGENTS.md`; summary of production incidents:
+
+## 1. Fix: every TikTok URL failing (`Usage: yt-dlp [OPTIONS] URL`) — EXTRACTOR
+
+**Symptom:** After `TIKTOK_COOKIES_FILE` was configured, *all* TikTok playback
+broke (not just age-gated posts).
+
+**Root cause:** `TikTokExtractor` passed the cookie path as
+`cookieFile`, which `youtube-dl-exec` converts to the nonexistent
+`--cookie-file` flag. yt-dlp rejects the whole invocation.
+
+**Fix:** option renamed to `cookies` (→ `--cookies`). Verified against the
+bundled yt-dlp binary with the real cookies file.
+
+## 2. Fix: YouTube rate-limited ("This content isn't available, try again later")
+
+**Root cause:** anonymous yt-dlp session banned by YouTube for up to an hour;
+`data/cookies.txt` existed but was never wired up.
+
+**Fix:** `YOUTUBE_COOKIES_FILE` env (set to `./data/cookies.txt` in `.env`)
+consumed by `YoutubeDlpExtractor` COMMON_FLAGS, plus `sleepRequests: 1` on
+search/playlist dumps to avoid re-tripping the limiter.
+
+## 3. Fix: `/play` crash on `setThumbnail` (ValidationError)
+
+**Root cause:** YouTube channel avatars arrive as protocol-relative URLs
+(`//yt3.ggpht.com/...`); discord.js requires absolute URLs.
+
+**Fix:** `safeEmbedUrl()` in `bot/utils/formatters.js`, applied at every
+embed thumbnail site. Also softened the misleading "Could not play:
+Cancelled" when `/stop` interrupts an in-flight search.
+
+## 4. Fix: `/lyrics` + `/replay` "Unknown command"
+
+**Root cause:** the systemd process predated the new command files and
+`pnpm deploy` had never been re-run after adding them. Commands load into the
+bot's Collection at boot, but Discord-side registration is a separate REST step.
+
+**Fix:** `pnpm deploy` (guild-scoped, instant) + `systemctl restart dj-miyabi`.
+
+## Ops notes (updated)
+
+- `pnpm deploy` must be re-run after adding/changing any slash command, then
+  restart the service.
+- Both cookie files live in `data/` (gitignored): `cookies.txt` (YouTube),
+  `tiktok-cookies.txt` (TikTok).
+- Deps pruned this session: `crypto-js`, `discord-player-youtubei`,
+  `@snazzah/davey`, `@tobyg74/tiktok-api-dl`, `ffmpeg-static`.
+- `scripts/test-music-resolve.mjs` was removed (superseded by the vitest suite).
