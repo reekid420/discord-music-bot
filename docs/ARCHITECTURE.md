@@ -1,4 +1,3 @@
-Warning: Identity file /home/reekid/.ssh/id_25519 not accessible: No such file or directory.
 # Architecture
 
 Technical overview of the DJ Miyabi codebase — structure, design decisions, database schema, and developer notes.
@@ -85,7 +84,7 @@ discord-bot/
 ├── .env / .env.example
 ├── package.json                    # ES module ("type": "module"), pnpm
 ├── pm2.ecosystem.config.cjs        # PM2 production config
-└── groove-bot.service              # Systemd unit file (alternative to PM2)
+└── dj-miyabi.service              # Systemd unit file (alternative to PM2)
 ```
 
 ---
@@ -99,14 +98,14 @@ discord-bot/
 | Audio engine                 | `discord-player`               | ^7.2    | Modular extractor system                       |
 | YouTube                      | Custom `YoutubeDlpExtractor`   | —       | yt-dlp (`youtube-dl-exec`) — direct stream URLs |
 | SoundCloud / Spotify / Files | `@discord-player/extractor`    | ^7.2    | `DefaultExtractors` bundle                     |
-| TikTok                       | Custom `TikTokExtractor`       | —       | `@tobyg74/tiktok-api-dl`                       |
-| Audio codec                  | `opusscript` + system `ffmpeg` | —       | Opus encoding; requires `FFMPEG_BIN=/usr/bin/ffmpeg` (see DEPLOYMENT.md) |
-| Database                     | `better-sqlite3`               | ^12.8   | Synchronous SQLite, WAL mode                   |
-| Web server                   | `express`                      | ^5.2    | REST API                                       |
-| WebSockets                   | `socket.io`                    | ^4.8    | Real-time dashboard                            |
-| Auth                         | `cookie-parser`                | ^1.4    | Signed session cookies                         |
-| File uploads                 | `multer`                       | ^2.1    | Multipart parsing                              |
-| Audio metadata               | `mediaplex`                    | ^1.0    | ID3/tag extraction from uploads                |
+| TikTok                        | Custom `TikTokExtractor`       | —       | yt-dlp + embed-page sound resolution            |
+| Audio codec                   | `sodium-native` / `opusscript` + system `ffmpeg` | — | Opus encoding; requires `FFMPEG_BIN=/usr/bin/ffmpeg` (see DEPLOYMENT.md) |
+| Database                      | `better-sqlite3`               | ^12.8   | Synchronous SQLite, WAL mode                    |
+| Web server                    | `express`                      | ^5.2    | REST API                                        |
+| WebSockets                    | `socket.io`                    | ^4.8    | Real-time dashboard (session-authenticated handshake) |
+| Auth                          | `cookie-parser`                | ^1.4    | httpOnly session cookies, rate-limited login    |
+| File uploads                  | `multer`                       | ^2.1    | Multipart parsing                               |
+| Audio metadata                | `mediaplex`                    | ^1.0    | Upload probing: duration/tags + content validation |
 
 ---
 
@@ -195,8 +194,10 @@ CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist ON playlist_tracks(playl
 3. `YoutubeDlpExtractor` — YouTube via yt-dlp (youtube-dl-exec)
 
 > Note: `discord-player-youtubei` was removed from the runtime path in Aug 2026 —
-> its stream URLs silently failed. The package remains in `package.json` but is
-> not registered with the player.
+> its stream URLs silently failed. It has since been removed from `package.json`
+> entirely (along with the unused `crypto-js`, `@snazzah/davey`,
+> `@tobyg74/tiktok-api-dl`, and `ffmpeg-static`; extraction uses system ffmpeg
+> via `FFMPEG_BIN`, and yt-dlp handles all YouTube/TikTok resolution).
 
 To change priority, reorder the `register` / `loadMulti` calls in `setup.js`.
 

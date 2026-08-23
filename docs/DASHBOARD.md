@@ -11,6 +11,19 @@ Access at `http://<server-ip>:3000` (port configurable via `DASHBOARD_PORT`).
 - Sessions are stored in the SQLite `sessions` table
 - POST `/api/logout` to invalidate the current session
 - All `/api/*` routes require a valid session cookie (except `/api/login` and `/api/logout`)
+- Socket.io connections are authenticated at handshake with the same session
+  cookie; unauthenticated sockets are rejected before joining any guild room
+
+### Hardening (Aug 2026)
+
+- **Fail closed**: the bot refuses to start without `DASHBOARD_PASSWORD`; there
+  is no default password
+- **Rate limiting**: 10 failed logins per IP per 15-minute window → HTTP 429
+- **Timing-safe** password comparison (`crypto.timingSafeEqual`)
+- Cookies are `httpOnly`, `sameSite=lax`; set `DASHBOARD_SECURE_COOKIES=1`
+  when serving over HTTPS to add the `secure` flag
+- Error responses never include internal error details; failures are logged
+  server-side only
 
 ---
 
@@ -107,6 +120,8 @@ All endpoints require the session cookie unless noted.
 | `POST` | `/api/player/resume` | `{ guild }` | Resume |
 | `POST` | `/api/player/stop` | `{ guild }` | Stop + clear + disconnect |
 | `POST` | `/api/player/volume` | `{ guild, volume }` | Set volume (1–100) |
+| `POST` | `/api/player/loop` | `{ guild, mode }` | Repeat mode: 0 off, 1 track, 2 queue |
+| `GET` | `/api/player/search` | `?query=<text>` | Resolve search text to up to 5 tracks (used by playlist add) |
 
 ### Queue
 
@@ -123,21 +138,22 @@ All endpoints require the session cookie unless noted.
 |---|---|---|---|
 | `GET` | `/api/playlists` | — | List all playlists |
 | `GET` | `/api/playlists/:id` | — | Single playlist + tracks |
-| `POST` | `/api/playlists` | `{ name, ownerId, guildId? }` | Create |
+| `POST` | `/api/playlists` | `{ name, ownerId, guildId?, is_public? }` | Create |
 | `PUT` | `/api/playlists/:id` | `{ name?, is_public? }` | Update |
 | `DELETE` | `/api/playlists/:id` | — | Delete |
 | `POST` | `/api/playlists/:id/tracks` | `{ title, url, duration_ms?, thumbnail? }` | Add track |
 | `DELETE` | `/api/playlists/:id/tracks/:trackId` | — | Remove track |
 | `POST` | `/api/playlists/:id/play` | `{ guild }` | Enqueue to bot |
+| `POST` | `/api/playlists/:id/import` | `{ url }` | Bulk-import tracks from a YouTube playlist URL |
 
 ### Upload
 
 | Method | Endpoint | Body | Description |
 |---|---|---|---|
-| `POST` | `/api/upload` | Multipart `file` | Upload audio (max 100 MB) |
-| `GET` | `/api/upload/files` | — | List uploaded files |
-| `POST` | `/api/upload/play` | `{ guild, fileId }` | Play uploaded file |
-| `DELETE` | `/api/upload/files/:id` | — | Delete uploaded file |
+| `POST` | `/api/upload` | Multipart `file` | Upload audio (max 100 MB; must be parseable media) |
+| `GET` | `/api/upload` | — | List uploaded files |
+| `POST` | `/api/upload/:id/play` | `{ guild }` | Play uploaded file |
+| `DELETE` | `/api/upload/:id` | — | Delete uploaded file |
 
 ### Settings
 

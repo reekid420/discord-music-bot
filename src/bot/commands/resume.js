@@ -1,19 +1,12 @@
 import { SlashCommandBuilder, MessageFlags } from 'discord.js';
-import { getMemberVoiceChannel, isInSameVC, isDJ } from '../utils/permissions.js';
+import { getMemberVoiceChannel, isInSameVC } from '../utils/permissions.js';
 import { useQueue } from 'discord-player';
 
 export const data = new SlashCommandBuilder()
   .setName('resume')
-  .setDescription('Resume the paused track (DJ only)');
+  .setDescription('Resume the paused track (anyone in voice channel)');
 
 export async function execute(interaction) {
-  if (!isDJ(interaction.member)) {
-    return interaction.reply({
-      content: '❌ Only DJs can resume playback.',
-      flags: MessageFlags.Ephemeral,
-    });
-  }
-
   const vc = getMemberVoiceChannel(interaction.member);
   if (!vc || !isInSameVC(interaction.member, interaction.client)) {
     return interaction.reply({

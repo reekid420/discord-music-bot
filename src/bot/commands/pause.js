@@ -1,19 +1,12 @@
 import { SlashCommandBuilder, MessageFlags } from 'discord.js';
-import { getMemberVoiceChannel, isInSameVC, isDJ } from '../utils/permissions.js';
+import { getMemberVoiceChannel, isInSameVC } from '../utils/permissions.js';
 import { useQueue } from 'discord-player';
 
 export const data = new SlashCommandBuilder()
   .setName('pause')
-  .setDescription('Pause the current track (DJ only)');
+  .setDescription('Pause the current track (anyone in voice channel)');
 
 export async function execute(interaction) {
-  if (!isDJ(interaction.member)) {
-    return interaction.reply({
-      content: '❌ Only DJs can pause playback.',
-      flags: MessageFlags.Ephemeral,
-    });
-  }
-
   const vc = getMemberVoiceChannel(interaction.member);
   if (!vc || !isInSameVC(interaction.member, interaction.client)) {
     return interaction.reply({

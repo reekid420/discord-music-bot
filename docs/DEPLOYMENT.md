@@ -67,7 +67,7 @@ pm2 monit                    # Real-time CPU / memory dashboard
 
 ## systemd (Alternative to PM2)
 
-A pre-written unit file is included at `groove-bot.service` in the project root.
+A pre-written unit file is included at `dj-miyabi.service` in the project root.
 The production deployment on this host uses `dj-miyabi.service` in
 `/etc/systemd/system/` (same content plus the ffmpeg override below).
 
@@ -88,7 +88,7 @@ Environment=FFMPEG_BIN=/usr/bin/ffmpeg
 the `ffmpeg-static` module honors `FFMPEG_BIN` and exports the system path.)
 
 ```bash
-sudo cp groove-bot.service /etc/systemd/system/
+sudo cp dj-miyabi.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable dj-miyabi    # Auto-start on boot
 sudo systemctl start dj-miyabi     # Start now

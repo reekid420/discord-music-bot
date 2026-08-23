@@ -6,10 +6,9 @@
 2. Click **"New Application"** → name it (e.g. "DJ Miyabi") → **Create**
 3. Navigate to the **"Bot"** tab in the sidebar
 4. Click **"Reset Token"** → copy the token → **save it securely** (this is your `DISCORD_TOKEN`)
-5. Under **"Privileged Gateway Intents"**, enable:
-   - ✅ Presence Intent
-   - ✅ Server Members Intent
-   - ✅ Message Content Intent
+5. Under **"Privileged Gateway Intents"**, leave everything **disabled** —
+   the bot only needs the non-privileged `Guilds` and `GuildVoiceStates`
+   intents (enabled automatically in code). No privileged intents are required.
 6. Click **Save Changes**
 
 ## 2. Get Your Client ID
@@ -48,7 +47,9 @@ cp .env.example .env
 # DISCORD_TOKEN=<your bot token>
 # CLIENT_ID=<your application ID>
 # GUILD_ID=<your server ID>  (optional)
-# DASHBOARD_PASSWORD=<pick a strong password>
+# DASHBOARD_PASSWORD=<pick a strong password>  (required — the bot won't start without it)
+# DB_PATH=./data/miyabi.db        (optional — SQLite database location)
+# UPLOADS_DIR=./uploads           (optional — where dashboard uploads are stored)
 # TIKTOK_COOKIES_FILE=<path to cookies file>  (optional — for age-gated TikToks)
 ```
 
