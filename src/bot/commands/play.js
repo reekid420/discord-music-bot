@@ -1,7 +1,8 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import { QueryType } from 'discord-player';
 import { getMemberVoiceChannel } from '../utils/permissions.js';
 import { pickSearchEngine } from '../utils/urlHelpers.js';
+import { safeEmbedUrl } from '../utils/formatters.js';
 import { getGuildSettings } from '../../db/database.js';
 
 export const data = new SlashCommandBuilder()
@@ -19,7 +20,7 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   const vc = getMemberVoiceChannel(interaction.member);
   if (!vc) {
-    return interaction.reply({ content: '❌ You need to be in a voice channel.', ephemeral: true });
+    return interaction.reply({ content: '❌ You need to be in a voice channel.', flags: MessageFlags.Ephemeral });
   }
 
   await interaction.deferReply();
@@ -66,7 +67,7 @@ export async function execute(interaction) {
           { name: 'Requested by', value: interaction.user.tag, inline: true },
           { name: 'Source', value: pl.source || 'YouTube', inline: true }
         )
-        .setThumbnail(pl.thumbnail || result.track?.thumbnail || null);
+        .setThumbnail(safeEmbedUrl(pl.thumbnail || result.track?.thumbnail));
     } else {
       const track = result.track;
       embed
@@ -77,12 +78,18 @@ export async function execute(interaction) {
           { name: 'Requested by', value: interaction.user.tag, inline: true },
           { name: 'Source', value: track.source || 'Unknown', inline: true }
         )
-        .setThumbnail(track.thumbnail || null);
+        .setThumbnail(safeEmbedUrl(track.thumbnail));
     }
 
     await interaction.followUp({ embeds: [embed] });
   } catch (error) {
+    // /stop (or a disconnect) cancels in-flight searches — not a real failure
+    if (error?.message === 'Cancelled') {
+      return interaction.followUp({ content: '⏹️ Playback request cancelled.' }).catch(() => {});
+    }
     console.error('[Play]', error);
-    await interaction.followUp({ content: `❌ Could not play: ${error.message}` });
+    await interaction
+      .followUp({ content: `❌ Could not play: ${error.message}` })
+      .catch(() => {});
   }
 }

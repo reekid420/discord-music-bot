@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { MessageFlags, SlashCommandBuilder } from 'discord.js';
 import { getMemberVoiceChannel, isInSameVC, isDJ } from '../utils/permissions.js';
 import { useQueue, QueueRepeatMode } from 'discord-player';
 
@@ -22,17 +22,17 @@ export async function execute(interaction) {
   if (!vc || !isInSameVC(interaction.member, interaction.client)) {
     return interaction.reply({
       content: '❌ You need to be in the same voice channel.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
   if (!isDJ(interaction.member)) {
-    return interaction.reply({ content: '❌ Only DJs can change the loop mode.', ephemeral: true });
+    return interaction.reply({ content: '❌ Only DJs can change the loop mode.', flags: MessageFlags.Ephemeral });
   }
 
   const queue = useQueue(interaction.guildId);
   if (!queue) {
-    return interaction.reply({ content: '❌ Nothing is playing right now.', ephemeral: true });
+    return interaction.reply({ content: '❌ Nothing is playing right now.', flags: MessageFlags.Ephemeral });
   }
 
   const mode = interaction.options.getString('mode', true);

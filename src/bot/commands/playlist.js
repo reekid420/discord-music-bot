@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import { getMemberVoiceChannel, isDJ } from '../utils/permissions.js';
 import { QueryType, useQueue } from 'discord-player';
 import { isYouTubePlaylistUrl } from '../utils/urlHelpers.js';
@@ -100,7 +100,7 @@ async function handleCreate(interaction) {
   if (name.length > 50) {
     return interaction.reply({
       content: '❌ Playlist name must be 50 characters or less.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -108,7 +108,7 @@ async function handleCreate(interaction) {
   if (existing) {
     return interaction.reply({
       content: `❌ You already have a playlist called **${name}**.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -129,7 +129,7 @@ async function handleAdd(interaction) {
   if (!playlist) {
     return interaction.reply({
       content: `❌ You don't have a playlist called **${name}**.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -190,7 +190,7 @@ async function handleAdd(interaction) {
   if (!queue || !queue.currentTrack) {
     return interaction.reply({
       content: '❌ Nothing is playing. Provide a query or play a track first.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -207,7 +207,7 @@ async function handleAdd(interaction) {
 async function handlePlay(interaction) {
   const vc = getMemberVoiceChannel(interaction.member);
   if (!vc) {
-    return interaction.reply({ content: '❌ You need to be in a voice channel.', ephemeral: true });
+    return interaction.reply({ content: '❌ You need to be in a voice channel.', flags: MessageFlags.Ephemeral });
   }
 
   const name = interaction.options.getString('name', true).trim();
@@ -218,12 +218,12 @@ async function handlePlay(interaction) {
   });
 
   if (!playlist) {
-    return interaction.reply({ content: `❌ Playlist **${name}** not found.`, ephemeral: true });
+    return interaction.reply({ content: `❌ Playlist **${name}** not found.`, flags: MessageFlags.Ephemeral });
   }
 
   const tracks = getPlaylistTracks(playlist.id);
   if (tracks.length === 0) {
-    return interaction.reply({ content: `❌ Playlist **${name}** is empty.`, ephemeral: true });
+    return interaction.reply({ content: `❌ Playlist **${name}** is empty.`, flags: MessageFlags.Ephemeral });
   }
 
   await interaction.deferReply();
@@ -270,7 +270,7 @@ async function handleList(interaction) {
   if (playlists.length === 0) {
     return interaction.reply({
       content: 'No playlists yet. Create one with `/playlist create`.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -304,7 +304,7 @@ async function handleView(interaction) {
   });
 
   if (!playlist) {
-    return interaction.reply({ content: `❌ Playlist **${name}** not found.`, ephemeral: true });
+    return interaction.reply({ content: `❌ Playlist **${name}** not found.`, flags: MessageFlags.Ephemeral });
   }
 
   const tracks = getPlaylistTracks(playlist.id);
@@ -330,7 +330,7 @@ async function handleDelete(interaction) {
   if (!playlist) {
     return interaction.reply({
       content: `❌ You don't have a playlist called **${name}**.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -345,7 +345,7 @@ async function handleShare(interaction) {
   if (!playlist) {
     return interaction.reply({
       content: `❌ You don't have a playlist called **${name}**.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 

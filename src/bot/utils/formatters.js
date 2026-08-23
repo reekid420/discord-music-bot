@@ -41,3 +41,16 @@ export function truncate(text, max = 50) {
   if (!text) return '';
   return text.length > max ? text.slice(0, max - 3) + '...' : text;
 }
+
+/**
+ * Normalize a media URL for Discord embeds. YouTube sometimes returns
+ * protocol-relative URLs (e.g. "//yt3.ggpht.com/...") which discord.js
+ * rejects; prefix them so setThumbnail doesn't throw.
+ * @param {string|undefined|null} url
+ * @returns {string|null}
+ */
+export function safeEmbedUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  if (url.startsWith('//')) return `https:${url}`;
+  return url;
+}

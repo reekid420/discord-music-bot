@@ -8,7 +8,7 @@ const COOKIES_FILE = process.env.TIKTOK_COOKIES_FILE || '';
 
 function ytdlpOptions(extra = {}) {
   const opts = { noWarnings: true, ...extra };
-  if (COOKIES_FILE) opts.cookieFile = COOKIES_FILE;
+  if (COOKIES_FILE) opts.cookies = COOKIES_FILE; // yt-dlp flag: --cookies
   return opts;
 }
 

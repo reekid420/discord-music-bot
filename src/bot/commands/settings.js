@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import { updateGuildSettings } from '../../db/database.js';
 
 export const data = new SlashCommandBuilder()
@@ -33,7 +33,7 @@ export async function execute(interaction) {
         if (roleId && !interaction.guild.roles.cache.has(roleId)) {
           return interaction.reply({
             content: '❌ Role not found. Use a mention or role ID.',
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
           });
         }
         updateGuildSettings(interaction.guildId, { dj_role_id: roleId });
@@ -46,7 +46,7 @@ export async function execute(interaction) {
         if (isNaN(pct) || pct < 1 || pct > 100) {
           return interaction.reply({
             content: '❌ Threshold must be 1-100 (percentage).',
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
           });
         }
         updateGuildSettings(interaction.guildId, { vote_threshold: pct / 100 });
@@ -59,7 +59,7 @@ export async function execute(interaction) {
         if (isNaN(seconds) || seconds < 0 || seconds > 3600) {
           return interaction.reply({
             content: '❌ Timeout must be 0-3600 seconds.',
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
           });
         }
         updateGuildSettings(interaction.guildId, { auto_leave_s: seconds });
@@ -70,7 +70,7 @@ export async function execute(interaction) {
       case 'default_volume': {
         const vol = parseInt(value, 10);
         if (isNaN(vol) || vol < 1 || vol > 100) {
-          return interaction.reply({ content: '❌ Volume must be 1-100.', ephemeral: true });
+          return interaction.reply({ content: '❌ Volume must be 1-100.', flags: MessageFlags.Ephemeral });
         }
         updateGuildSettings(interaction.guildId, { default_volume: vol });
         await interaction.reply(`✅ Default volume set to **${vol}%**.`);
@@ -79,6 +79,6 @@ export async function execute(interaction) {
     }
   } catch (err) {
     console.error('[Settings]', err);
-    await interaction.reply({ content: '❌ Failed to update settings.', ephemeral: true });
+    await interaction.reply({ content: '❌ Failed to update settings.', flags: MessageFlags.Ephemeral });
   }
 }

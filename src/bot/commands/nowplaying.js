@@ -1,6 +1,6 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import { useQueue } from 'discord-player';
-import { progressBar } from '../utils/formatters.js';
+import { progressBar, safeEmbedUrl } from '../utils/formatters.js';
 
 export const data = new SlashCommandBuilder()
   .setName('nowplaying')
@@ -9,7 +9,7 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   const queue = useQueue(interaction.guildId);
   if (!queue || !queue.currentTrack) {
-    return interaction.reply({ content: '❌ Nothing is playing right now.', ephemeral: true });
+    return interaction.reply({ content: '❌ Nothing is playing right now.', flags: MessageFlags.Ephemeral });
   }
 
   const track = queue.currentTrack;
@@ -36,7 +36,7 @@ export async function execute(interaction) {
         value: `${progress?.current?.label || '0:00'} ${progressBar(progress?.current?.value || 0, progress?.total?.value || 0)} ${progress?.total?.label || '0:00'}`,
       }
     )
-    .setThumbnail(track.thumbnail || null)
+    .setThumbnail(safeEmbedUrl(track.thumbnail))
     .setFooter({
       text: `Volume: ${queue.node.volume}% | Loop: ${loopLabels[queue.repeatMode] ?? 'Off'} | Try /lyrics`,
     })

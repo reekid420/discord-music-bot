@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { MessageFlags, SlashCommandBuilder } from 'discord.js';
 import { getMemberVoiceChannel, isInSameVC, isDJ } from '../utils/permissions.js';
 import { useQueue } from 'discord-player';
 
@@ -18,13 +18,13 @@ export async function execute(interaction) {
   if (!vc || !isInSameVC(interaction.member, interaction.client)) {
     return interaction.reply({
       content: '❌ You need to be in the same voice channel.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
   const queue = useQueue(interaction.guildId);
   if (!queue || queue.tracks.size === 0) {
-    return interaction.reply({ content: '❌ The queue is empty.', ephemeral: true });
+    return interaction.reply({ content: '❌ The queue is empty.', flags: MessageFlags.Ephemeral });
   }
 
   const position = interaction.options.getInteger('position', true);
@@ -33,7 +33,7 @@ export async function execute(interaction) {
   if (position < 1 || position > tracks.length) {
     return interaction.reply({
       content: `❌ Invalid position. Queue has ${tracks.length} tracks.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -44,7 +44,7 @@ export async function execute(interaction) {
   if (!isOwner && !isDJ(interaction.member)) {
     return interaction.reply({
       content: '❌ You can only remove your own tracks, or be a DJ.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 

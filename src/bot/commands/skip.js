@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import { getMemberVoiceChannel, isInSameVC, isDJ } from '../utils/permissions.js';
 import { useQueue } from 'discord-player';
 import { castVote } from '../utils/voteSkip.js';
@@ -13,13 +13,13 @@ export async function execute(interaction) {
   if (!vc || !isInSameVC(interaction.member, interaction.client)) {
     return interaction.reply({
       content: '❌ You need to be in the same voice channel.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
   const queue = useQueue(interaction.guildId);
   if (!queue || !queue.currentTrack) {
-    return interaction.reply({ content: '❌ Nothing is playing right now.', ephemeral: true });
+    return interaction.reply({ content: '❌ Nothing is playing right now.', flags: MessageFlags.Ephemeral });
   }
 
   // DJ or Admin gets force skip

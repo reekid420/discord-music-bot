@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import { useQueue } from 'discord-player';
 import youtubeDl from 'youtube-dl-exec';
 import { unlink, stat } from 'fs';
@@ -60,7 +60,7 @@ export async function execute(interaction) {
   log(`Request from ${interaction.user.tag} — url=${url ?? '(current track)'} format=${format}`);
 
   // Defer ephemerally — yt-dlp can take 10–30 s
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   // ─── Resolve URL & title ──────────────────────────────────────
   let trackUrl = url;

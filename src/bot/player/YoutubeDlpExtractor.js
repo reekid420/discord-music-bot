@@ -12,10 +12,20 @@ const MAX_PLAYLIST_TRACKS = 100;
 
 // jsRuntimes: 'node' silences the "No supported JavaScript runtime" EJS warning
 // and gives yt-dlp full format access (Node 24 is installed on the host).
+// cookies: optional Netscape-format cookie file — without it YouTube
+// rate-limits the anonymous session ("This content isn't available, try
+// again later" for up to an hour).
+const COOKIES_FILE = process.env.YOUTUBE_COOKIES_FILE || '';
+
 const COMMON_FLAGS = {
   noWarnings: true,
   jsRuntimes: 'node',
 };
+if (COOKIES_FILE) COMMON_FLAGS.cookies = COOKIES_FILE;
+
+// Search/playlist dumps hit YouTube many times in a row — pace the requests
+// so the session doesn't trip the rate limiter.
+const BULK_FLAGS = { ...COMMON_FLAGS, sleepRequests: 1 };
 
 function toTimecode(seconds) {
   if (!seconds || !Number.isFinite(seconds)) return '0:00';
@@ -67,7 +77,7 @@ export class YoutubeDlpExtractor extends BaseExtractor {
 
   async handleSearch(query, context) {
     const data = await youtubedl(`ytsearch5:${query}`, {
-      ...COMMON_FLAGS,
+      ...BULK_FLAGS,
       dumpSingleJson: true,
       flatPlaylist: true,
     });
@@ -88,7 +98,7 @@ export class YoutubeDlpExtractor extends BaseExtractor {
 
   async handlePlaylist(url, context) {
     const data = await youtubedl(url, {
-      ...COMMON_FLAGS,
+      ...BULK_FLAGS,
       dumpSingleJson: true,
       flatPlaylist: true,
       yesPlaylist: true,

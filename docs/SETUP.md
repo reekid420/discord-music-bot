@@ -51,6 +51,7 @@ cp .env.example .env
 # DB_PATH=./data/miyabi.db        (optional — SQLite database location)
 # UPLOADS_DIR=./uploads           (optional — where dashboard uploads are stored)
 # TIKTOK_COOKIES_FILE=<path to cookies file>  (optional — for age-gated TikToks)
+# YOUTUBE_COOKIES_FILE=<path to cookies file> (recommended — without it YouTube rate-limits yt-dlp)
 ```
 
 ## 6. Install Dependencies (Debian 13)

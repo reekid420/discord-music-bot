@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import { useQueue } from 'discord-player';
 import { truncate } from '../utils/formatters.js';
 
@@ -10,7 +10,7 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   const queue = useQueue(interaction.guildId);
   if (!queue || (!queue.currentTrack && queue.tracks.size === 0)) {
-    return interaction.reply({ content: '📭 The queue is empty.', ephemeral: true });
+    return interaction.reply({ content: '📭 The queue is empty.', flags: MessageFlags.Ephemeral });
   }
 
   const tracks = queue.tracks.toArray();

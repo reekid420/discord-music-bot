@@ -7,13 +7,15 @@ Type=simple
 # Change 'username' to the actual user running the bot on your Debian server
 User=root
 # Change this to the absolute path of your bot's directory
-WorkingDirectory=/root/discord-bot/
+WorkingDirectory=/root/discord-music-bot/
 
 # If using fnm on Debian, you either need to provide the absolute path to node
 # or load the fnm environment. A robust way is to just use the absolute path to node:
 # ExecStart=/home/username/.local/share/fnm/aliases/default/bin/node src/bot/index.js
 # Or if using standard node:
 ExecStart=/usr/bin/node src/bot/index.js
+# Use distro ffmpeg: ffmpeg-static 7.0.2 segfaults on YouTube googlevideo streams
+Environment=FFMPEG_BIN=/usr/bin/ffmpeg
 
 # Restart policy: automatically restart if the bot crashes
 Restart=on-failure
