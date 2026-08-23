@@ -10,7 +10,7 @@ import { startWebServer } from '../web/server.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ─── Validate environment ───
-const requiredEnv = ['DISCORD_TOKEN', 'CLIENT_ID'];
+const requiredEnv = ['DISCORD_TOKEN', 'CLIENT_ID', 'DASHBOARD_PASSWORD'];
 for (const key of requiredEnv) {
   if (!process.env[key]) {
     console.error(`[Boot] Missing required env var: ${key}. See .env.example`);

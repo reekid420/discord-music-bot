@@ -4,7 +4,7 @@ import { Server as SocketIO } from 'socket.io';
 import cookieParser from 'cookie-parser';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { authMiddleware, loginRoute, logoutRoute } from './middleware/auth.js';
+import { authMiddleware, loginRoute, logoutRoute, COOKIE_NAME, isValidSession } from './middleware/auth.js';
 import { playerRoutes } from './routes/player.js';
 import { queueRoutes } from './routes/queue.js';
 import { playlistRoutes } from './routes/playlists.js';
@@ -20,9 +20,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export function startWebServer(client) {
   const app = express();
   const server = createServer(app);
-  const io = new SocketIO(server, {
-    cors: { origin: '*' },
-  });
+  const io = new SocketIO(server);
 
   const port = parseInt(process.env.DASHBOARD_PORT) || 3000;
 
@@ -59,11 +57,25 @@ export function startWebServer(client) {
     res.sendFile(join(__dirname, 'public', 'index.html'));
   });
 
-  // ─── Socket.io ───
+  // ─── Central error handler (never leaks internals) ───
+  app.use((err, req, res, _next) => {
+    console.error('[Web] Unhandled error:', err);
+    if (res.headersSent) return;
+    res.status(500).json({ error: 'Internal server error' });
+  });
+
+  // ─── Socket.io (authenticated) ───
+  io.use((socket, next) => {
+    const token = parseCookies(socket.handshake.headers.cookie)[COOKIE_NAME];
+    if (isValidSession(token)) return next();
+    next(new Error('unauthorized'));
+  });
+
   io.on('connection', (socket) => {
     console.log('[WS] Dashboard client connected');
 
     socket.on('selectGuild', (guildId) => {
+      if (typeof guildId !== 'string' || !/^\d+$/.test(guildId)) return;
       socket.join(`guild:${guildId}`);
       // Send current state immediately
       emitPlayerState(client, io, guildId);
@@ -97,6 +109,20 @@ export function startWebServer(client) {
   server.listen(port, () => {
     console.log(`[Web] Dashboard running at http://localhost:${port}`);
   });
+}
+
+/**
+ * Minimal cookie parser for the Socket.io handshake.
+ */
+function parseCookies(header) {
+  const out = {};
+  if (!header) return out;
+  for (const part of header.split(';')) {
+    const eq = part.indexOf('=');
+    if (eq === -1) continue;
+    out[part.slice(0, eq).trim()] = decodeURIComponent(part.slice(eq + 1).trim());
+  }
+  return out;
 }
 
 /**

@@ -1,11 +1,5 @@
-import { describe, it, expect, beforeAll } from 'vitest';
-import { tmpdir } from 'os';
-import { join } from 'path';
-import {
-  isYouTubePlaylistUrl,
-  isUrl,
-  pickSearchEngine,
-} from '../src/bot/utils/urlHelpers.js';
+import { describe, it, expect } from 'vitest';
+import { isYouTubePlaylistUrl, isUrl, pickSearchEngine } from '../src/bot/utils/urlHelpers.js';
 
 const QT = { AUTO: 'auto', YOUTUBE_SEARCH: 'yt_search' };
 

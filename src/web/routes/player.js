@@ -44,7 +44,8 @@ export function playerRoutes(client, io) {
       }));
       res.json({ tracks });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error("[Player]", err);
+      res.status(500).json({ error: "Action failed" });
     }
   });
 
@@ -130,7 +131,8 @@ export function playerRoutes(client, io) {
         res.json({ success: true, track: result.track.title, isPlaylist: false });
       }
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error("[Player]", err);
+      res.status(500).json({ error: "Action failed" });
     }
   });
 
@@ -145,7 +147,8 @@ export function playerRoutes(client, io) {
       await queue.node.seek(ms);
       res.json({ success: true, position: ms });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error("[Player]", err);
+      res.status(500).json({ error: "Action failed" });
     }
   });
 

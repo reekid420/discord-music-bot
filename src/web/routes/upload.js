@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { resolve, extname } from 'path';
-import { mkdirSync, unlinkSync } from 'fs';
+import { resolve, extname, sep } from 'path';
+import { mkdirSync, unlinkSync, createReadStream } from 'fs';
 import crypto from 'crypto';
+import { probeStream, readMetadata } from 'mediaplex';
 import {
   addLocalFile,
   getAllLocalFiles,
@@ -51,17 +52,34 @@ export function uploadRoutes(client) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    // Content check: the file must actually be parseable media. Reject and remove otherwise.
+    let meta;
+    try {
+      const probed = await probeStream(createReadStream(req.file.path), { sync: true });
+      probed.stream.destroy();
+      meta = readMetadata(probed.result);
+      if (!meta.duration && !meta.title) throw new Error('no metadata');
+    } catch (err) {
+      console.warn('[Upload] Rejected non-media upload:', err.message);
+      try {
+        unlinkSync(req.file.path);
+      } catch {
+        /* already gone */
+      }
+      return res.status(400).json({ error: 'File is not recognizable audio' });
+    }
+
     try {
       const record = addLocalFile({
         filename: req.file.originalname,
         filepath: req.file.path,
-        title: req.file.originalname.replace(extname(req.file.originalname), ''),
-        duration_ms: null, // Could parse with mediaplex if needed
+        title: meta.title || req.file.originalname.replace(extname(req.file.originalname), ''),
+        duration_ms: meta.duration ? Math.round(meta.duration * 1000) : null,
       });
 
       res.json(record);
     } catch (err) {
-      console.error('[Upload]', err);
+      console.error('[Upload] Failed to save file record:', err);
       res.status(500).json({ error: 'Failed to save file record' });
     }
   });
@@ -77,10 +95,15 @@ export function uploadRoutes(client) {
     const file = getLocalFileById(parseInt(req.params.id));
     if (!file) return res.status(404).json({ error: 'File not found' });
 
-    // Remove from filesystem
+    // Only ever delete files that live inside the uploads directory
+    const resolvedPath = resolve(file.filepath);
+    if (!resolvedPath.startsWith(`${uploadsDir}${sep}`)) {
+      return res.status(400).json({ error: 'Refusing to delete file outside uploads dir' });
+    }
+
     try {
-      unlinkSync(file.filepath);
-    } catch (e) {
+      unlinkSync(resolvedPath);
+    } catch {
       // File may already be gone, that's OK
     }
 
@@ -116,7 +139,8 @@ export function uploadRoutes(client) {
       });
       res.json({ success: true, title: file.title });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[Upload] Play failed:', err);
+      res.status(500).json({ error: 'Failed to play file' });
     }
   });
 
@@ -126,12 +150,9 @@ export function uploadRoutes(client) {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(413).json({ error: 'File too large. Maximum size is 100MB.' });
       }
-      return res.status(400).json({ error: err.message });
+      return res.status(400).json({ error: 'Upload rejected' });
     }
-    if (err) {
-      return res.status(400).json({ error: err.message });
-    }
-    next();
+    next(err);
   });
 
   return router;
