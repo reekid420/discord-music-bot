@@ -23,6 +23,9 @@ import {
   getSession,
   deleteSession,
   cleanExpiredSessions,
+  saveQueueSnapshot,
+  getQueueSnapshot,
+  deleteQueueSnapshot,
 } from '../src/db/database.js';
 
 beforeAll(() => {
@@ -102,6 +105,24 @@ describe('local files', () => {
   it('falls back to filename as title', () => {
     const f = addLocalFile({ filename: 'track.flac', filepath: '/uploads/track.flac' });
     expect(f.title).toBe('track.flac');
+  });
+});
+
+describe('queue snapshots', () => {
+  it('upserts, reads back JSON, and deletes', () => {
+    saveQueueSnapshot('g9', { current: { url: 'a' }, tracks: [{ url: 'b' }], volume: 50 });
+    saveQueueSnapshot('g9', { current: null, tracks: [], volume: 70 }); // overwrite
+
+    const snap = getQueueSnapshot('g9');
+    expect(snap.volume).toBe(70);
+    expect(snap.tracks).toEqual([]);
+
+    deleteQueueSnapshot('g9');
+    expect(getQueueSnapshot('g9')).toBeNull();
+  });
+
+  it('returns null for unknown guilds', () => {
+    expect(getQueueSnapshot('nope')).toBeNull();
   });
 });
 
