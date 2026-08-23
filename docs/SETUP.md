@@ -87,11 +87,13 @@ If not set, commands register globally (can take up to 1 hour).
 ## 8. Start the Bot
 
 ### Development (with auto-restart on file changes)
+
 ```bash
 pnpm run dev
 ```
 
 ### Production (with PM2)
+
 ```bash
 # Install PM2 globally
 pnpm add -g pm2
@@ -119,11 +121,11 @@ Enter the password you set in `DASHBOARD_PASSWORD`.
 
 ## Troubleshooting
 
-| Issue | Solution |
-|---|---|
-| Bot not responding to commands | Run `node src/bot/deploy-commands.js` again |
-| "Missing Access" error | Re-invite bot with correct permissions (Step 3) |
+| Issue                               | Solution                                                                                                                                                            |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bot not responding to commands      | Run `node src/bot/deploy-commands.js` again                                                                                                                         |
+| "Missing Access" error              | Re-invite bot with correct permissions (Step 3)                                                                                                                     |
 | Audio cutting out / silent playback | Check ffmpeg: `ffmpeg -version`. If using systemd, also set `Environment=FFMPEG_BIN=/usr/bin/ffmpeg` in the unit (bundled ffmpeg-static can segfault on some hosts) |
-| YouTube 403 errors | Usually temporary; SoundCloud fallback should work |
-| Dashboard won't connect | Check firewall allows port 3000 |
-| `opusscript` errors | Install native opus: `sudo apt install libopus0` |
+| YouTube 403 errors                  | Usually temporary; SoundCloud fallback should work                                                                                                                  |
+| Dashboard won't connect             | Check firewall allows port 3000                                                                                                                                     |
+| `opusscript` errors                 | Install native opus: `sudo apt install libopus0`                                                                                                                    |

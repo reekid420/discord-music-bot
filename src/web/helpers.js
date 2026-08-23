@@ -1,25 +1,12 @@
 import { getGuildSettings } from '../db/database.js';
+import { serializeTrack } from '../bot/utils/trackDto.js';
+
+export { serializeTrack };
 
 /**
  * Shared web-layer helpers: track serialization, queue lookup,
  * voice channel resolution and player-state emission.
  */
-
-/**
- * Serialize a discord-player track for JSON transport.
- * @param {import('discord-player').Track} t
- */
-export function serializeTrack(t) {
-  return {
-    title: t.title,
-    artist: t.author,
-    duration: t.duration,
-    durationMs: t.durationMS,
-    thumbnail: t.thumbnail,
-    url: t.url,
-    requestedBy: t.requestedBy?.tag || 'Unknown',
-  };
-}
 
 /**
  * Serialize a player queue's upcoming tracks for JSON transport.

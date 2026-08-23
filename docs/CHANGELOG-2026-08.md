@@ -17,6 +17,7 @@ spawned it, it crashed instantly, and `playerStart` still fired — hence silent
 static build → segfault; distro ffmpeg → decodes fine.
 
 **Fix (system config, not repo):**
+
 - Installed distro ffmpeg via apt.
 - `/etc/systemd/system/dj-miyabi.service`:
   ```
@@ -34,25 +35,31 @@ static build → segfault; distro ffmpeg → decodes fine.
 Rewritten with three improvements:
 
 ### a. Sound/music share pages now resolve
+
 `tiktok.com/music/<slug>-<id>` and `/audio/...` URLs previously failed with
 "Unsupported URL" (yt-dlp's sound extractor is broken: "No working app info is
 available"; TikTok locked their web APIs behind signed tokens).
 
 New resolution path, verified end-to-end:
+
 1. Hit TikTok's public embed page `https://www.tiktok.com/embed/music/<id>`
    (server-rendered, needs no cookies/auth).
 2. Scrape up to 10 real video URLs using that sound.
 3. Verify each via yt-dlp metadata dump; queue the top 3 as tracks.
 
 ### b. Optional cookies for age-gated posts
+
 Age-restricted TikToks fail with "Log in for access". Set in `.env`:
+
 ```
 TIKTOK_COOKIES_FILE=/path/to/cookies.txt   # Netscape format from your browser
 ```
+
 When present, the cookie file is passed to every yt-dlp call in the extractor
 (metadata dumps and streaming).
 
 ### c. Cleanup
+
 - All URL shapes matched by one consolidated regex (`TIKTOK_URL_RE`):
   `@user/video/N`, `vt.`/`vm.` short links, `/t/` share codes, `/music/`,
   `/audio/`.

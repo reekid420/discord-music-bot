@@ -48,6 +48,13 @@ CREATE TABLE IF NOT EXISTS sessions (
   expires_at INTEGER NOT NULL
 );
 
+-- Persistent queue snapshots (survive restarts, restore with /replay)
+CREATE TABLE IF NOT EXISTS queue_snapshots (
+  guild_id  TEXT PRIMARY KEY,
+  payload   TEXT NOT NULL,
+  saved_at  INTEGER DEFAULT (unixepoch())
+);
+
 -- Indexes for frequent lookups
 CREATE INDEX IF NOT EXISTS idx_playlists_owner ON playlists(owner_id);
 CREATE INDEX IF NOT EXISTS idx_playlists_guild ON playlists(guild_id);

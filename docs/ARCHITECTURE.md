@@ -91,21 +91,21 @@ discord-bot/
 
 ## Tech Stack
 
-| Concern                      | Library                        | Version | Notes                                          |
-| ---------------------------- | ------------------------------ | ------- | ---------------------------------------------- |
-| Runtime                      | Node.js                        | 22 LTS  | ES Modules throughout                          |
-| Discord                      | `discord.js`                   | ^14.26  | Slash commands, voice intents                  |
-| Audio engine                 | `discord-player`               | ^7.2    | Modular extractor system                       |
-| YouTube                      | Custom `YoutubeDlpExtractor`   | —       | yt-dlp (`youtube-dl-exec`) — direct stream URLs |
-| SoundCloud / Spotify / Files | `@discord-player/extractor`    | ^7.2    | `DefaultExtractors` bundle                     |
-| TikTok                        | Custom `TikTokExtractor`       | —       | yt-dlp + embed-page sound resolution            |
-| Audio codec                   | `sodium-native` / `opusscript` + system `ffmpeg` | — | Opus encoding; requires `FFMPEG_BIN=/usr/bin/ffmpeg` (see DEPLOYMENT.md) |
-| Database                      | `better-sqlite3`               | ^12.8   | Synchronous SQLite, WAL mode                    |
-| Web server                    | `express`                      | ^5.2    | REST API                                        |
-| WebSockets                    | `socket.io`                    | ^4.8    | Real-time dashboard (session-authenticated handshake) |
-| Auth                          | `cookie-parser`                | ^1.4    | httpOnly session cookies, rate-limited login    |
-| File uploads                  | `multer`                       | ^2.1    | Multipart parsing                               |
-| Audio metadata                | `mediaplex`                    | ^1.0    | Upload probing: duration/tags + content validation |
+| Concern                      | Library                                          | Version | Notes                                                                    |
+| ---------------------------- | ------------------------------------------------ | ------- | ------------------------------------------------------------------------ |
+| Runtime                      | Node.js                                          | 22 LTS  | ES Modules throughout                                                    |
+| Discord                      | `discord.js`                                     | ^14.26  | Slash commands, voice intents                                            |
+| Audio engine                 | `discord-player`                                 | ^7.2    | Modular extractor system                                                 |
+| YouTube                      | Custom `YoutubeDlpExtractor`                     | —       | yt-dlp (`youtube-dl-exec`) — direct stream URLs                          |
+| SoundCloud / Spotify / Files | `@discord-player/extractor`                      | ^7.2    | `DefaultExtractors` bundle                                               |
+| TikTok                       | Custom `TikTokExtractor`                         | —       | yt-dlp + embed-page sound resolution                                     |
+| Audio codec                  | `sodium-native` / `opusscript` + system `ffmpeg` | —       | Opus encoding; requires `FFMPEG_BIN=/usr/bin/ffmpeg` (see DEPLOYMENT.md) |
+| Database                     | `better-sqlite3`                                 | ^12.8   | Synchronous SQLite, WAL mode                                             |
+| Web server                   | `express`                                        | ^5.2    | REST API                                                                 |
+| WebSockets                   | `socket.io`                                      | ^4.8    | Real-time dashboard (session-authenticated handshake)                    |
+| Auth                         | `cookie-parser`                                  | ^1.4    | httpOnly session cookies, rate-limited login                             |
+| File uploads                 | `multer`                                         | ^2.1    | Multipart parsing                                                        |
+| Audio metadata               | `mediaplex`                                      | ^1.0    | Upload probing: duration/tags + content validation                       |
 
 ---
 

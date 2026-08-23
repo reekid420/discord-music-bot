@@ -14,6 +14,8 @@ export async function execute(interaction) {
 
   const track = queue.currentTrack;
   const progress = queue.node.getTimestamp();
+  const upcoming = queue.tracks.size;
+  const loopLabels = { 0: 'Off', 1: 'Track', 2: 'Queue' };
 
   const embed = new EmbedBuilder()
     .setColor(0x7c3aed)
@@ -25,13 +27,18 @@ export async function execute(interaction) {
       { name: 'Source', value: track.source || 'Unknown', inline: true },
       { name: 'Requested by', value: track.requestedBy?.tag || 'Unknown', inline: true },
       {
+        name: 'Up next',
+        value: upcoming > 0 ? `${upcoming} track${upcoming === 1 ? '' : 's'}` : '—',
+        inline: true,
+      },
+      {
         name: 'Progress',
         value: `${progress?.current?.label || '0:00'} ${progressBar(progress?.current?.value || 0, progress?.total?.value || 0)} ${progress?.total?.label || '0:00'}`,
       }
     )
     .setThumbnail(track.thumbnail || null)
     .setFooter({
-      text: `Volume: ${queue.node.volume}% | Loop: ${queue.repeatMode === 0 ? 'Off' : queue.repeatMode === 1 ? 'Track' : 'Queue'}`,
+      text: `Volume: ${queue.node.volume}% | Loop: ${loopLabels[queue.repeatMode] ?? 'Off'} | Try /lyrics`,
     })
     .setTimestamp();
 

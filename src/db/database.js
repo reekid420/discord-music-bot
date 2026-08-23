@@ -230,3 +230,28 @@ export function cleanExpiredSessions() {
   const now = Math.floor(Date.now() / 1000);
   getDb().prepare('DELETE FROM sessions WHERE expires_at <= ?').run(now);
 }
+
+// ─── Queue snapshots ───
+
+export function saveQueueSnapshot(guildId, payload) {
+  getDb()
+    .prepare(
+      `INSERT INTO queue_snapshots (guild_id, payload, saved_at) VALUES (?, ?, unixepoch())
+       ON CONFLICT(guild_id) DO UPDATE SET payload = excluded.payload, saved_at = excluded.saved_at`
+    )
+    .run(guildId, JSON.stringify(payload));
+}
+
+export function getQueueSnapshot(guildId) {
+  const row = getDb().prepare('SELECT * FROM queue_snapshots WHERE guild_id = ?').get(guildId);
+  if (!row) return null;
+  try {
+    return JSON.parse(row.payload);
+  } catch {
+    return null;
+  }
+}
+
+export function deleteQueueSnapshot(guildId) {
+  getDb().prepare('DELETE FROM queue_snapshots WHERE guild_id = ?').run(guildId);
+}

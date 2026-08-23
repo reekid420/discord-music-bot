@@ -30,7 +30,9 @@ Access at `http://<server-ip>:3000` (port configurable via `DASHBOARD_PORT`).
 ## Views
 
 ### Now Playing
+
 Large album art, track title and artist, an interactive seek scrubber, and playback controls:
+
 - **Seek scrubber** — click anywhere on the progress bar to jump, or click-and-drag for fine-grained control
   - Hovering reveals a drag handle; the bar grows slightly to make it easier to grab
   - Keyboard accessible: focus the bar and use ← / → (5 s steps), Home, End
@@ -40,18 +42,24 @@ Large album art, track title and artist, an interactive seek scrubber, and playb
 - Volume slider (1–100)
 
 ### Queue
+
 Ordered list of upcoming tracks. Each row shows position, title, duration, and requester. Actions:
+
 - Remove a track (trash icon)
 - Shuffle the entire queue
 
 ### Playlists
+
 Grid of playlist cards. Each card shows the playlist name, track count, and owner. Actions:
+
 - **Create** — inline form to name a new playlist
 - **Expand** — view all tracks; remove individual tracks
 - **Play** — enqueues all tracks to the bot for the selected guild
 
 ### Upload
+
 Drag-and-drop zone for local audio files (MP3, FLAC, WAV, OGG, M4A; max 100 MB each).
+
 - Upload progress bar shown per file
 - Uploaded files listed below with:
   - **Play now** — queues the file in the bot immediately
@@ -59,7 +67,9 @@ Drag-and-drop zone for local audio files (MP3, FLAC, WAV, OGG, M4A; max 100 MB e
   - **Delete** — removes from server and database
 
 ### Settings
+
 Per-guild configuration form:
+
 - **DJ role** — dropdown populated from the guild's actual roles
 - **Vote-skip threshold** — percentage slider
 - **Auto-leave timeout** — seconds input
@@ -79,13 +89,13 @@ The top navigation bar has a guild dropdown listing every server the bot is in. 
 
 The dashboard connects to Socket.io on load and emits `selectGuild <guildId>` to subscribe to live updates.
 
-| Event | Direction | Trigger | Payload |
-|---|---|---|---|
-| `selectGuild` | Client → Server | User switches guild | `guildId: string` |
-| `playerState` | Server → Client | Response to `selectGuild` | Full player state snapshot |
-| `trackStart` | Server → Client | New track begins | `{ guildId, track, queue }` |
-| `queueUpdate` | Server → Client | Track added / removed / shuffled / queue empties | `{ guildId, queue }` |
-| `playerDisconnect` | Server → Client | Bot leaves voice | `{ guildId }` |
+| Event              | Direction       | Trigger                                          | Payload                     |
+| ------------------ | --------------- | ------------------------------------------------ | --------------------------- |
+| `selectGuild`      | Client → Server | User switches guild                              | `guildId: string`           |
+| `playerState`      | Server → Client | Response to `selectGuild`                        | Full player state snapshot  |
+| `trackStart`       | Server → Client | New track begins                                 | `{ guildId, track, queue }` |
+| `queueUpdate`      | Server → Client | Track added / removed / shuffled / queue empties | `{ guildId, queue }`        |
+| `playerDisconnect` | Server → Client | Bot leaves voice                                 | `{ guildId }`               |
 
 `track` objects in payloads: `{ title, artist, duration, durationMs, thumbnail, url, requestedBy }`
 
@@ -97,67 +107,67 @@ All endpoints require the session cookie unless noted.
 
 ### Auth
 
-| Method | Endpoint | Body | Description |
-|---|---|---|---|
-| `POST` | `/api/login` | `{ password }` | Login — returns session cookie |
-| `POST` | `/api/logout` | — | Logout — clears session |
+| Method | Endpoint      | Body           | Description                    |
+| ------ | ------------- | -------------- | ------------------------------ |
+| `POST` | `/api/login`  | `{ password }` | Login — returns session cookie |
+| `POST` | `/api/logout` | —              | Logout — clears session        |
 
 ### Guilds
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/guilds` | List guilds the bot is in (`{ id, name, icon, memberCount }`) |
+| Method | Endpoint      | Description                                                   |
+| ------ | ------------- | ------------------------------------------------------------- |
+| `GET`  | `/api/guilds` | List guilds the bot is in (`{ id, name, icon, memberCount }`) |
 
 ### Player
 
-| Method | Endpoint | Body / Query | Description |
-|---|---|---|---|
-| `GET` | `/api/player` | `?guild=<id>` | Full player state |
-| `POST` | `/api/player/play` | `{ guild, query }` | Play by URL or search |
-| `POST` | `/api/player/seek` | `{ guild, position }` | Seek to position in ms |
-| `POST` | `/api/player/skip` | `{ guild }` | Force-skip |
-| `POST` | `/api/player/pause` | `{ guild }` | Pause |
-| `POST` | `/api/player/resume` | `{ guild }` | Resume |
-| `POST` | `/api/player/stop` | `{ guild }` | Stop + clear + disconnect |
-| `POST` | `/api/player/volume` | `{ guild, volume }` | Set volume (1–100) |
-| `POST` | `/api/player/loop` | `{ guild, mode }` | Repeat mode: 0 off, 1 track, 2 queue |
-| `GET` | `/api/player/search` | `?query=<text>` | Resolve search text to up to 5 tracks (used by playlist add) |
+| Method | Endpoint             | Body / Query          | Description                                                  |
+| ------ | -------------------- | --------------------- | ------------------------------------------------------------ |
+| `GET`  | `/api/player`        | `?guild=<id>`         | Full player state                                            |
+| `POST` | `/api/player/play`   | `{ guild, query }`    | Play by URL or search                                        |
+| `POST` | `/api/player/seek`   | `{ guild, position }` | Seek to position in ms                                       |
+| `POST` | `/api/player/skip`   | `{ guild }`           | Force-skip                                                   |
+| `POST` | `/api/player/pause`  | `{ guild }`           | Pause                                                        |
+| `POST` | `/api/player/resume` | `{ guild }`           | Resume                                                       |
+| `POST` | `/api/player/stop`   | `{ guild }`           | Stop + clear + disconnect                                    |
+| `POST` | `/api/player/volume` | `{ guild, volume }`   | Set volume (1–100)                                           |
+| `POST` | `/api/player/loop`   | `{ guild, mode }`     | Repeat mode: 0 off, 1 track, 2 queue                         |
+| `GET`  | `/api/player/search` | `?query=<text>`       | Resolve search text to up to 5 tracks (used by playlist add) |
 
 ### Queue
 
-| Method | Endpoint | Body / Query | Description |
-|---|---|---|---|
-| `GET` | `/api/queue` | `?guild=<id>` | Full queue |
-| `DELETE` | `/api/queue/:position` | `?guild=<id>` | Remove track at position |
-| `POST` | `/api/queue/shuffle` | `{ guild }` | Shuffle |
-| `POST` | `/api/queue/move` | `{ guild, from, to }` | Reorder track |
+| Method   | Endpoint               | Body / Query          | Description              |
+| -------- | ---------------------- | --------------------- | ------------------------ |
+| `GET`    | `/api/queue`           | `?guild=<id>`         | Full queue               |
+| `DELETE` | `/api/queue/:position` | `?guild=<id>`         | Remove track at position |
+| `POST`   | `/api/queue/shuffle`   | `{ guild }`           | Shuffle                  |
+| `POST`   | `/api/queue/move`      | `{ guild, from, to }` | Reorder track            |
 
 ### Playlists
 
-| Method | Endpoint | Body | Description |
-|---|---|---|---|
-| `GET` | `/api/playlists` | — | List all playlists |
-| `GET` | `/api/playlists/:id` | — | Single playlist + tracks |
-| `POST` | `/api/playlists` | `{ name, ownerId, guildId?, is_public? }` | Create |
-| `PUT` | `/api/playlists/:id` | `{ name?, is_public? }` | Update |
-| `DELETE` | `/api/playlists/:id` | — | Delete |
-| `POST` | `/api/playlists/:id/tracks` | `{ title, url, duration_ms?, thumbnail? }` | Add track |
-| `DELETE` | `/api/playlists/:id/tracks/:trackId` | — | Remove track |
-| `POST` | `/api/playlists/:id/play` | `{ guild }` | Enqueue to bot |
-| `POST` | `/api/playlists/:id/import` | `{ url }` | Bulk-import tracks from a YouTube playlist URL |
+| Method   | Endpoint                             | Body                                       | Description                                    |
+| -------- | ------------------------------------ | ------------------------------------------ | ---------------------------------------------- |
+| `GET`    | `/api/playlists`                     | —                                          | List all playlists                             |
+| `GET`    | `/api/playlists/:id`                 | —                                          | Single playlist + tracks                       |
+| `POST`   | `/api/playlists`                     | `{ name, ownerId, guildId?, is_public? }`  | Create                                         |
+| `PUT`    | `/api/playlists/:id`                 | `{ name?, is_public? }`                    | Update                                         |
+| `DELETE` | `/api/playlists/:id`                 | —                                          | Delete                                         |
+| `POST`   | `/api/playlists/:id/tracks`          | `{ title, url, duration_ms?, thumbnail? }` | Add track                                      |
+| `DELETE` | `/api/playlists/:id/tracks/:trackId` | —                                          | Remove track                                   |
+| `POST`   | `/api/playlists/:id/play`            | `{ guild }`                                | Enqueue to bot                                 |
+| `POST`   | `/api/playlists/:id/import`          | `{ url }`                                  | Bulk-import tracks from a YouTube playlist URL |
 
 ### Upload
 
-| Method | Endpoint | Body | Description |
-|---|---|---|---|
-| `POST` | `/api/upload` | Multipart `file` | Upload audio (max 100 MB; must be parseable media) |
-| `GET` | `/api/upload` | — | List uploaded files |
-| `POST` | `/api/upload/:id/play` | `{ guild }` | Play uploaded file |
-| `DELETE` | `/api/upload/:id` | — | Delete uploaded file |
+| Method   | Endpoint               | Body             | Description                                        |
+| -------- | ---------------------- | ---------------- | -------------------------------------------------- |
+| `POST`   | `/api/upload`          | Multipart `file` | Upload audio (max 100 MB; must be parseable media) |
+| `GET`    | `/api/upload`          | —                | List uploaded files                                |
+| `POST`   | `/api/upload/:id/play` | `{ guild }`      | Play uploaded file                                 |
+| `DELETE` | `/api/upload/:id`      | —                | Delete uploaded file                               |
 
 ### Settings
 
-| Method | Endpoint | Body / Query | Description |
-|---|---|---|---|
-| `GET` | `/api/settings` | `?guild=<id>` | Get settings + guild role list |
-| `POST` | `/api/settings` | `{ guild, dj_role_id?, vote_threshold?, auto_leave_s?, default_volume? }` | Update settings |
+| Method | Endpoint        | Body / Query                                                              | Description                    |
+| ------ | --------------- | ------------------------------------------------------------------------- | ------------------------------ |
+| `GET`  | `/api/settings` | `?guild=<id>`                                                             | Get settings + guild role list |
+| `POST` | `/api/settings` | `{ guild, dj_role_id?, vote_threshold?, auto_leave_s?, default_volume? }` | Update settings                |

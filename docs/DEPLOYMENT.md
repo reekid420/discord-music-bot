@@ -53,15 +53,15 @@ pm2 monit                    # Real-time CPU / memory dashboard
 
 ### PM2 config summary (`pm2.ecosystem.config.cjs`)
 
-| Setting | Value | Effect |
-|---|---|---|
-| `script` | `src/bot/index.js` | Entry point |
-| `watch` | `false` | No file watching in production |
-| `max_restarts` | `10` | Max crashes in a 60s window before giving up |
-| `min_uptime` | `10s` | Process must stay alive 10s to count as successful |
-| `restart_delay` | `5000ms` | Wait 5s between restart attempts |
-| `error_file` | `./logs/error.log` | Stderr log path |
-| `out_file` | `./logs/out.log` | Stdout log path |
+| Setting         | Value              | Effect                                             |
+| --------------- | ------------------ | -------------------------------------------------- |
+| `script`        | `src/bot/index.js` | Entry point                                        |
+| `watch`         | `false`            | No file watching in production                     |
+| `max_restarts`  | `10`               | Max crashes in a 60s window before giving up       |
+| `min_uptime`    | `10s`              | Process must stay alive 10s to count as successful |
+| `restart_delay` | `5000ms`           | Wait 5s between restart attempts                   |
+| `error_file`    | `./logs/error.log` | Stderr log path                                    |
+| `out_file`      | `./logs/out.log`   | Stdout log path                                    |
 
 ---
 
@@ -72,6 +72,7 @@ The production deployment on this host uses `dj-miyabi.service` in
 `/etc/systemd/system/` (same content plus the ffmpeg override below).
 
 Before installing, edit the file and set:
+
 - `User=` — the Linux user that will run the bot
 - `WorkingDirectory=` — absolute path to the project root (e.g. `/home/youruser/discord-bot`)
 - `ExecStart=` — absolute path to `node` (run `which node` to find it)
@@ -139,16 +140,16 @@ sudo ufw allow from <your-ip> to any port 3000
 
 ## Troubleshooting
 
-| Symptom | Likely Cause | Fix |
-|---|---|---|
-| Bot not responding to slash commands | Commands not registered | Run `node src/bot/deploy-commands.js` |
-| "Missing Access" on bot invite | Incorrect permissions | Re-invite via OAuth2 URL Generator (see SETUP.md) |
-| `DISCORD_TOKEN` error at startup | Missing or wrong env var | Check `.env` exists and has correct values |
+| Symptom                                      | Likely Cause                                        | Fix                                                                                     |
+| -------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Bot not responding to slash commands         | Commands not registered                             | Run `node src/bot/deploy-commands.js`                                                   |
+| "Missing Access" on bot invite               | Incorrect permissions                               | Re-invite via OAuth2 URL Generator (see SETUP.md)                                       |
+| `DISCORD_TOKEN` error at startup             | Missing or wrong env var                            | Check `.env` exists and has correct values                                              |
 | Audio cuts out immediately / silent playback | ffmpeg missing or bundled ffmpeg-static segfaulting | `ffmpeg -version`; set `Environment=FFMPEG_BIN=/usr/bin/ffmpeg` in the unit and restart |
-| YouTube 403 / stream errors | YouTube bot detection | Usually transient; try again or use SoundCloud link |
-| TikTok URL not playing | Private or region-blocked video | Only public TikTok videos are supported |
-| Dashboard unreachable | Firewall blocking port | `sudo ufw allow 3000/tcp` |
-| Dashboard login loop | Wrong password or stale cookie | Clear browser cookies; verify `DASHBOARD_PASSWORD` in `.env` |
-| `opusscript` native errors | Missing libopus | `sudo apt install -y libopus0` |
-| PM2 doesn't restart on reboot | `pm2 save` not run | `pm2 startup systemd && pm2 save` |
-| Bot stays in empty VC | Auto-leave disabled | `/settings auto_leave 300` to set 5-minute timeout |
+| YouTube 403 / stream errors                  | YouTube bot detection                               | Usually transient; try again or use SoundCloud link                                     |
+| TikTok URL not playing                       | Private or region-blocked video                     | Only public TikTok videos are supported                                                 |
+| Dashboard unreachable                        | Firewall blocking port                              | `sudo ufw allow 3000/tcp`                                                               |
+| Dashboard login loop                         | Wrong password or stale cookie                      | Clear browser cookies; verify `DASHBOARD_PASSWORD` in `.env`                            |
+| `opusscript` native errors                   | Missing libopus                                     | `sudo apt install -y libopus0`                                                          |
+| PM2 doesn't restart on reboot                | `pm2 save` not run                                  | `pm2 startup systemd && pm2 save`                                                       |
+| Bot stays in empty VC                        | Auto-leave disabled                                 | `/settings auto_leave 300` to set 5-minute timeout                                      |
