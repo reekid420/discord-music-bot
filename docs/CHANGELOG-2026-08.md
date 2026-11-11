@@ -162,3 +162,37 @@ bot's Collection at boot, but Discord-side registration is a separate REST step.
 - Deps pruned this session: `crypto-js`, `discord-player-youtubei`,
   `@snazzah/davey`, `@tobyg74/tiktok-api-dl`, `ffmpeg-static`.
 - `scripts/test-music-resolve.mjs` was removed (superseded by the vitest suite).
+
+## Session 3 (Aug 23, evening): flaky search + wrong lyrics
+
+**Symptom 1 — "search not working good (but does work)":** `/play big dick
+randy` intermittently returned `NoResultError` (16:59 EDT), and one `/play
+goodkid` queued instantly but sat silent for 12 minutes before playing.
+
+**Root causes (both reproduced outside Discord):**
+- YouTube's search endpoint returns a clean `entries: []` for explicit/edgy
+  terms ("big dick randy" → 0 results deterministically; the typo "big disck
+  randy" → 5). Server-side filtering, not rate limiting — cookies don't help.
+- Pre-restart process (no YouTube cookies) hit rate-limit storms during
+  stream resolution: one `/play` walked ~190 videos against the limiter for
+  12 minutes before SoundCloud bridged the track.
+
+**Fix:** `shouldFallbackToSoundcloud()` (`bot/utils/searchFallback.js`) —
+text-query `NoResultError`s get one retry via `SOUNDCLOUD_SEARCH` (embed
+notes the source swap); 60s `withTimeout` guard on single-video resolves in
+`YoutubeDlpExtractor` so a wedged yt-dlp fails over in a minute, not 12.
+
+**Symptom 2 — `/lyrics` showed "BIG DICK RANDY 2" for "Big Dick Randy":**
+`searchLyrics` took lrclib's first result with plain lyrics; lrclib ranks by
+popularity, and the sequel outranks the original.
+
+**Fix:** `findLyrics()` — exact `/api/get?artist_name&track_name` first
+(strips YouTube title noise and author trailing dashes), then `/api/search`
+ranked by normalized-title similarity (`pickBestMatch`, unit-tested against
+the real fixture order).
+
+**Ops notes:** the TikTok `--cookie-file` errors in the same log window
+(02:54–16:19 EDT) were the already-fixed flag bug — last occurrence predates
+the 16:55 restart. YouTube cookie jar has login-class cookies yet explicit
+searches are still filtered — check Restricted Mode on the exporting account
+if YouTube-side results are wanted for such queries.

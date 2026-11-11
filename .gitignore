@@ -5,3 +5,5 @@ uploads/
 *.log
 logs/
 Screenshot_*.png
+*.bak
+handoff-*

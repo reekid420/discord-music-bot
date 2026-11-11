@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { useQueue } from 'discord-player';
 import { truncate } from '../utils/formatters.js';
-import { cleanTitle, searchLyrics } from '../utils/lyrics.js';
+import { findLyrics } from '../utils/lyrics.js';
 
 export const data = new SlashCommandBuilder()
   .setName('lyrics')
@@ -14,10 +14,10 @@ export async function execute(interaction) {
   await interaction.deferReply();
 
   const query = interaction.options.getString('query');
-  let search = query;
-  let contextTitle = query;
+  let artist = '';
+  let title = query ?? '';
 
-  if (!search) {
+  if (!query) {
     const queue = useQueue(interaction.guildId);
     const track = queue?.currentTrack;
     if (!track) {
@@ -25,14 +25,21 @@ export async function execute(interaction) {
         content: '❌ Nothing is playing. Give me a song name or play something first.',
       });
     }
-    // "Artist - Title" is the most common YouTube title shape
-    search = `${track.author ? track.author + ' ' : ''}${cleanTitle(track.title)}`;
-    contextTitle = track.title;
+    artist = track.author ?? '';
+    title = track.title;
+  } else {
+    // Free-text queries in the "Artist - Title" shape get an exact lookup too
+    const parts = title.split(/\s+[-–—]\s+/);
+    if (parts.length === 2) {
+      artist = parts[0];
+      title = parts[1];
+    }
   }
+  const contextTitle = query || title;
 
   let match;
   try {
-    match = await searchLyrics(search);
+    match = await findLyrics({ artist, title });
   } catch (err) {
     console.error('[Lyrics] lookup failed:', err.message);
     return interaction.followUp({ content: '❌ Lyrics service is unavailable right now.' });

@@ -3,7 +3,7 @@ import multer from 'multer';
 import { resolve, extname, sep } from 'path';
 import { mkdirSync, unlinkSync, createReadStream } from 'fs';
 import crypto from 'crypto';
-import { probeStream, readMetadata } from 'mediaplex';
+import { probeStream } from 'mediaplex';
 import {
   addLocalFile,
   getAllLocalFiles,
@@ -54,21 +54,51 @@ export function uploadRoutes(client) {
     }
 
     // Content check: the file must actually be parseable media. Reject and remove otherwise.
-    let meta;
-    try {
-      const probed = await probeStream(createReadStream(req.file.path), { sync: true });
-      probed.stream.destroy();
-      meta = readMetadata(probed.result);
-      if (!meta.duration && !meta.title) throw new Error('no metadata');
-    } catch (err) {
-      console.warn('[Upload] Rejected non-media upload:', err.message);
-      try {
-        unlinkSync(req.file.path);
-      } catch {
-        /* already gone */
-      }
-      return res.status(400).json({ error: 'File is not recognizable audio' });
-    }
+       // Validate audio independently of optional title/duration metadata.
+   let meta;
+   const input = createReadStream(req.file.path);
+   let probed;
+
+   try {
+     probed = await probeStream(input, 5 * 1024 * 1024);
+     const result = probed.result;
+
+     if (!(result?.channels > 0) || !(result?.sampleRate > 0)) {
+       throw new Error('No recognizable audio stream');
+     }
+
+     const tags = Array.isArray(result.metadata) ? result.metadata : [];
+     const titleTag = tags.find(tag =>
+       ['title', 'tit2'].includes(String(tag.name).toLowerCase())
+     );
+
+     meta = {
+       title: typeof titleTag?.value === 'string' ? titleTag.value : '',
+       duration:
+         Number.isFinite(result.duration) && result.duration > 0
+           ? result.duration
+           : null,
+     };
+   } catch (err) {
+     console.warn('[Upload] Audio validation failed:', err);
+
+     // Close streams before attempting to remove the rejected upload.
+     probed?.stream?.destroy();
+     input.destroy();
+
+     try {
+       unlinkSync(req.file.path);
+     } catch {
+       /* already gone, or cleanup failed */
+     }
+
+     return res.status(400).json({
+       error: 'File is not recognizable audio',
+     });
+   } finally {
+     probed?.stream?.destroy();
+     input.destroy();
+   }
 
     try {
       const record = addLocalFile({

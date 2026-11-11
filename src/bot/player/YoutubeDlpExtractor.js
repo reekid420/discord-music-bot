@@ -27,6 +27,24 @@ if (COOKIES_FILE) COMMON_FLAGS.cookies = COOKIES_FILE;
 // so the session doesn't trip the rate limiter.
 const BULK_FLAGS = { ...COMMON_FLAGS, sleepRequests: 1 };
 
+// Single-video resolves normally take seconds; a rate-limited session can
+// wedge yt-dlp for many minutes (observed: 12min before SoundCloud saved the
+// play). Fail fast so discord-player's fallback extractors can take over.
+const RESOLVE_TIMEOUT_MS = 60_000;
+
+function withTimeout(promise, label) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`${label} timed out after ${RESOLVE_TIMEOUT_MS / 1000}s`)),
+        RESOLVE_TIMEOUT_MS
+      );
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 function toTimecode(seconds) {
   if (!seconds || !Number.isFinite(seconds)) return '0:00';
   const s = Math.max(0, Math.round(seconds));
@@ -87,11 +105,14 @@ export class YoutubeDlpExtractor extends BaseExtractor {
   }
 
   async handleVideo(url, context) {
-    const data = await youtubedl(url, {
-      ...COMMON_FLAGS,
-      dumpJson: true,
-      noPlaylist: true,
-    });
+    const data = await withTimeout(
+      youtubedl(url, {
+        ...COMMON_FLAGS,
+        dumpJson: true,
+        noPlaylist: true,
+      }),
+      'YouTube metadata resolve'
+    );
     const track = this.makeTrack(data, context);
     return { playlist: null, tracks: track ? [track] : [] };
   }
@@ -155,12 +176,15 @@ export class YoutubeDlpExtractor extends BaseExtractor {
   // Returning a URL string (not a pipe) lets discord-player drive ffmpeg itself,
   // which keeps the dashboard seek endpoint working.
   async stream(track) {
-    const res = await youtubedl(track.url, {
-      ...COMMON_FLAGS,
-      getUrl: true,
-      format: 'bestaudio/best',
-      noPlaylist: true,
-    });
+    const res = await withTimeout(
+      youtubedl(track.url, {
+        ...COMMON_FLAGS,
+        getUrl: true,
+        format: 'bestaudio/best',
+        noPlaylist: true,
+      }),
+      'YouTube stream resolve'
+    );
     const url = (typeof res === 'string' ? res : (res?.stdout ?? '')).trim().split('\n')[0];
     if (!url) throw new Error('yt-dlp returned no stream URL');
     return url;
