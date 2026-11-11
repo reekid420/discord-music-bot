@@ -89,7 +89,9 @@ async function main() {
     console.log('[Boot] Discord client logged in');
   } catch (err) {
     console.error('[Boot] Discord login failed:', err.message);
-    console.error('[Boot] Dashboard is still running — fix your DISCORD_TOKEN in .env');
+    // The dashboard keeps the event loop alive. Treat failed login as fatal so
+    // systemd/PM2 can restart the whole process, including after boot-time outages.
+    throw err;
   }
 }
 

@@ -67,9 +67,8 @@ pm2 monit                    # Real-time CPU / memory dashboard
 
 ## systemd (Alternative to PM2)
 
-A pre-written unit file is included at `groove-bot.service` in the project root.
-The production deployment on this host uses `dj-miyabi.service` in
-`/etc/systemd/system/` (same content plus the ffmpeg override below).
+A pre-written unit file is included at `dj-miyabi.service` in the project root.
+Install it as `/etc/systemd/system/dj-miyabi.service`.
 
 Before installing, edit the file and set:
 - `User=` — the Linux user that will run the bot
@@ -78,7 +77,8 @@ Before installing, edit the file and set:
 
 **Required: force system ffmpeg.** The bundled `ffmpeg-static` binary can
 segfault on some hosts when reading YouTube/TikTok stream URLs (verified cause of
-a "joins VC but no audio" outage in Aug 2026). Add to the `[Service]` section:
+a "joins VC but no audio" outage in Aug 2026). The included unit already sets
+this in the `[Service]` section; preserve it if using a custom unit:
 
 ```ini
 Environment=FFMPEG_BIN=/usr/bin/ffmpeg
@@ -88,7 +88,7 @@ Environment=FFMPEG_BIN=/usr/bin/ffmpeg
 the `ffmpeg-static` module honors `FFMPEG_BIN` and exports the system path.)
 
 ```bash
-sudo cp groove-bot.service /etc/systemd/system/
+sudo cp dj-miyabi.service /etc/systemd/system/dj-miyabi.service
 sudo systemctl daemon-reload
 sudo systemctl enable dj-miyabi    # Auto-start on boot
 sudo systemctl start dj-miyabi     # Start now
@@ -96,6 +96,38 @@ sudo systemctl start dj-miyabi     # Start now
 sudo systemctl status dj-miyabi    # Check if running
 sudo journalctl -u dj-miyabi -f    # Follow logs
 ```
+
+### Boot-time connection failures
+
+Discord login failures now exit with status 1 instead of leaving only the
+dashboard running. The unit's `Restart=on-failure` retries after 10 seconds.
+`StartLimitIntervalSec=0` disables the start-rate limit so a long network outage
+does not exhaust the retries.
+
+The unit also requests and starts after `network-online.target`. This is only
+as useful as the container's network manager and wait-online service; it does
+not guarantee DNS or Discord is reachable. Failed-login restarts provide the
+fallback when the container boots before the host's network is ready.
+
+To update an existing deployment, pull the code, then review the unit's
+`User=`, `WorkingDirectory=`, `ExecStart=`, and any existing custom settings
+before installing it. Preserve the `FFMPEG_BIN` setting described above.
+
+```bash
+cd /root/discord-bot
+git pull --ff-only
+# Review/edit dj-miyabi.service for this host before copying.
+sudo cp dj-miyabi.service /etc/systemd/system/dj-miyabi.service
+sudo systemctl daemon-reload
+sudo systemctl reset-failed dj-miyabi
+sudo systemctl enable dj-miyabi
+sudo systemctl restart dj-miyabi
+sudo journalctl -u dj-miyabi -n 50 --no-pager
+```
+
+The dashboard restarts with the bot on a failed login. Invalid credentials also
+cause retries, so inspect the actual error: a connection timeout does not mean
+the token is wrong.
 
 ---
 

@@ -1,6 +1,9 @@
 [Unit]
 Description=DJ Miyabi Music Bot
-After=network.target
+Wants=network-online.target
+After=network-online.target
+# Keep retrying through prolonged boot-time network/DNS outages.
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -15,7 +18,10 @@ WorkingDirectory=/root/discord-bot/
 # Or if using standard node:
 ExecStart=/usr/bin/node src/bot/index.js
 
-# Restart policy: automatically restart if the bot crashes
+# Avoid the bundled ffmpeg-static binary's crashes on stream URLs.
+Environment=FFMPEG_BIN=/usr/bin/ffmpeg
+
+# Restart policy: login/startup failures exit nonzero, triggering a retry.
 Restart=on-failure
 RestartSec=10
 TimeoutStopSec=30
