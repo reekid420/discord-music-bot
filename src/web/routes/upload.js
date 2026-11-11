@@ -1,9 +1,16 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { join, resolve, extname } from 'path';
-import { mkdirSync, unlinkSync } from 'fs';
+import { resolve, extname, sep } from 'path';
+import { mkdirSync, unlinkSync, createReadStream } from 'fs';
 import crypto from 'crypto';
-import { addLocalFile, getAllLocalFiles, getLocalFileById, deleteLocalFile } from '../../db/database.js';
+import { probeStream } from 'mediaplex';
+import {
+  addLocalFile,
+  getAllLocalFiles,
+  getLocalFileById,
+  deleteLocalFile,
+} from '../../db/database.js';
+import { resolveVoiceChannel, queueNodeDefaults } from '../helpers.js';
 
 const ALLOWED_EXTENSIONS = ['.mp3', '.flac', '.wav', '.ogg', '.m4a', '.opus', '.webm'];
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
@@ -46,17 +53,64 @@ export function uploadRoutes(client) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    // Content check: the file must actually be parseable media. Reject and remove otherwise.
+       // Validate audio independently of optional title/duration metadata.
+   let meta;
+   const input = createReadStream(req.file.path);
+   let probed;
+
+   try {
+     probed = await probeStream(input, 5 * 1024 * 1024);
+     const result = probed.result;
+
+     if (!(result?.channels > 0) || !(result?.sampleRate > 0)) {
+       throw new Error('No recognizable audio stream');
+     }
+
+     const tags = Array.isArray(result.metadata) ? result.metadata : [];
+     const titleTag = tags.find(tag =>
+       ['title', 'tit2'].includes(String(tag.name).toLowerCase())
+     );
+
+     meta = {
+       title: typeof titleTag?.value === 'string' ? titleTag.value : '',
+       duration:
+         Number.isFinite(result.duration) && result.duration > 0
+           ? result.duration
+           : null,
+     };
+   } catch (err) {
+     console.warn('[Upload] Audio validation failed:', err);
+
+     // Close streams before attempting to remove the rejected upload.
+     probed?.stream?.destroy();
+     input.destroy();
+
+     try {
+       unlinkSync(req.file.path);
+     } catch {
+       /* already gone, or cleanup failed */
+     }
+
+     return res.status(400).json({
+       error: 'File is not recognizable audio',
+     });
+   } finally {
+     probed?.stream?.destroy();
+     input.destroy();
+   }
+
     try {
       const record = addLocalFile({
         filename: req.file.originalname,
         filepath: req.file.path,
-        title: req.file.originalname.replace(extname(req.file.originalname), ''),
-        duration_ms: null, // Could parse with mediaplex if needed
+        title: meta.title || req.file.originalname.replace(extname(req.file.originalname), ''),
+        duration_ms: meta.duration ? Math.round(meta.duration * 1000) : null,
       });
 
       res.json(record);
     } catch (err) {
-      console.error('[Upload]', err);
+      console.error('[Upload] Failed to save file record:', err);
       res.status(500).json({ error: 'Failed to save file record' });
     }
   });
@@ -72,10 +126,15 @@ export function uploadRoutes(client) {
     const file = getLocalFileById(parseInt(req.params.id));
     if (!file) return res.status(404).json({ error: 'File not found' });
 
-    // Remove from filesystem
+    // Only ever delete files that live inside the uploads directory
+    const resolvedPath = resolve(file.filepath);
+    if (!resolvedPath.startsWith(`${uploadsDir}${sep}`)) {
+      return res.status(400).json({ error: 'Refusing to delete file outside uploads dir' });
+    }
+
     try {
-      unlinkSync(file.filepath);
-    } catch (e) {
+      unlinkSync(resolvedPath);
+    } catch {
       // File may already be gone, that's OK
     }
 
@@ -94,21 +153,19 @@ export function uploadRoutes(client) {
     const guild = client.guilds.cache.get(guildId);
     if (!guild) return res.status(404).json({ error: 'Guild not found' });
 
-    const botMember = guild.members.cache.get(client.user.id);
-    const vc = botMember?.voice?.channel
-      || guild.channels.cache.find(c => c.isVoiceBased() && c.members.filter(m => !m.user.bot).size > 0);
-
+    const vc = await resolveVoiceChannel(client, guild);
     if (!vc) return res.status(400).json({ error: 'No voice channel to join' });
 
     try {
       const { QueryType } = await import('discord-player');
       await client.player.play(vc, file.filepath, {
         searchEngine: QueryType.FILE,
-        nodeOptions: { metadata: { guild }, volume: 80 },
+        nodeOptions: { metadata: { guild }, ...queueNodeDefaults(guildId) },
       });
       res.json({ success: true, title: file.title });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[Upload] Play failed:', err);
+      res.status(500).json({ error: 'Failed to play file' });
     }
   });
 
@@ -118,12 +175,9 @@ export function uploadRoutes(client) {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(413).json({ error: 'File too large. Maximum size is 100MB.' });
       }
-      return res.status(400).json({ error: err.message });
+      return res.status(400).json({ error: 'Upload rejected' });
     }
-    if (err) {
-      return res.status(400).json({ error: err.message });
-    }
-    next();
+    next(err);
   });
 
   return router;

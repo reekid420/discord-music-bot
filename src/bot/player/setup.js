@@ -3,6 +3,7 @@ import { DefaultExtractors } from '@discord-player/extractor';
 import { TikTokExtractor } from './TikTokExtractor.js';
 import { writeVerboseLog } from '../utils/logger.js';
 import { YoutubeDlpExtractor } from './YoutubeDlpExtractor.js';
+import { captureQueueSnapshot, clearQueueSnapshot } from '../utils/queuePersist.js';
 
 /**
  * Set up the discord-player instance with all extractors.
@@ -42,16 +43,19 @@ export async function setupPlayer(client) {
       requestedBy: track.requestedBy?.tag || 'Unknown',
     };
     console.log(`[Player] Now playing: ${track.title} in ${queue.guild.name}`);
+    captureQueueSnapshot(queue.guild.id);
     client.emit('playerTrackStart', queue.guild.id, meta, queue);
   });
 
   player.events.on('audioTrackAdd', (queue, track) => {
     console.log(`[Player] Track added: ${track.title}`);
+    captureQueueSnapshot(queue.guild.id);
     client.emit('playerQueueUpdate', queue.guild.id, queue);
   });
 
   player.events.on('audioTracksAdd', (queue, tracks) => {
     console.log(`[Player] ${tracks.length} tracks added to queue`);
+    captureQueueSnapshot(queue.guild.id);
     client.emit('playerQueueUpdate', queue.guild.id, queue);
   });
 
@@ -59,6 +63,7 @@ export async function setupPlayer(client) {
     // This fires when a track is skipped — INCLUDING when it errors out silently.
     // If you see this for a track you didn't skip, the stream failed.
     console.warn(`[Player] Track skipped (stream error?): ${track.title}`);
+    captureQueueSnapshot(queue.guild.id);
     client.emit('playerQueueUpdate', queue.guild.id, queue);
   });
 
@@ -74,6 +79,9 @@ export async function setupPlayer(client) {
 
   player.events.on('emptyQueue', (queue) => {
     console.log(`[Player] Queue empty in ${queue.guild.name}`);
+    // Queue finished naturally — drop the snapshot so /replay doesn't
+    // resurrect a finished queue. (Manual /stop keeps it for recovery.)
+    clearQueueSnapshot(queue.guild.id);
     client.emit('playerQueueUpdate', queue.guild.id, queue);
   });
 

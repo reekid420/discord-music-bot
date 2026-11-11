@@ -53,15 +53,15 @@ pm2 monit                    # Real-time CPU / memory dashboard
 
 ### PM2 config summary (`pm2.ecosystem.config.cjs`)
 
-| Setting | Value | Effect |
-|---|---|---|
-| `script` | `src/bot/index.js` | Entry point |
-| `watch` | `false` | No file watching in production |
-| `max_restarts` | `10` | Max crashes in a 60s window before giving up |
-| `min_uptime` | `10s` | Process must stay alive 10s to count as successful |
-| `restart_delay` | `5000ms` | Wait 5s between restart attempts |
-| `error_file` | `./logs/error.log` | Stderr log path |
-| `out_file` | `./logs/out.log` | Stdout log path |
+| Setting         | Value              | Effect                                             |
+| --------------- | ------------------ | -------------------------------------------------- |
+| `script`        | `src/bot/index.js` | Entry point                                        |
+| `watch`         | `false`            | No file watching in production                     |
+| `max_restarts`  | `10`               | Max crashes in a 60s window before giving up       |
+| `min_uptime`    | `10s`              | Process must stay alive 10s to count as successful |
+| `restart_delay` | `5000ms`           | Wait 5s between restart attempts                   |
+| `error_file`    | `./logs/error.log` | Stderr log path                                    |
+| `out_file`      | `./logs/out.log`   | Stdout log path                                    |
 
 ---
 
@@ -71,21 +71,23 @@ A pre-written unit file is included at `dj-miyabi.service` in the project root.
 Install it as `/etc/systemd/system/dj-miyabi.service`.
 
 Before installing, edit the file and set:
+
 - `User=` — the Linux user that will run the bot
 - `WorkingDirectory=` — absolute path to the project root (e.g. `/home/youruser/discord-bot`)
 - `ExecStart=` — absolute path to `node` (run `which node` to find it)
 
-**Required: force system ffmpeg.** The bundled `ffmpeg-static` binary can
-segfault on some hosts when reading YouTube/TikTok stream URLs (verified cause of
-a "joins VC but no audio" outage in Aug 2026). The included unit already sets
-this in the `[Service]` section; preserve it if using a custom unit:
+**Required: force system ffmpeg.** The formerly-bundled `ffmpeg-static` binary
+segfaulted on this host when reading YouTube/TikTok stream URLs (verified cause
+of a "joins VC but no audio" outage in Aug 2026); it has since been **removed
+from `package.json` entirely**. yt-dlp and discord-player now use the distro
+ffmpeg, located via `FFMPEG_BIN`. The included unit already sets this in the
+`[Service]` section; preserve it if using a custom unit:
 
 ```ini
 Environment=FFMPEG_BIN=/usr/bin/ffmpeg
 ```
 
-(`FFMPEG_PATH` does not work — prism-media and @discord-player/ffmpeg ignore it;
-the `ffmpeg-static` module honors `FFMPEG_BIN` and exports the system path.)
+(`FFMPEG_PATH` does not work — prism-media and @discord-player/ffmpeg ignore it.)
 
 ```bash
 sudo cp dj-miyabi.service /etc/systemd/system/dj-miyabi.service
@@ -114,7 +116,7 @@ To update an existing deployment, pull the code, then review the unit's
 before installing it. Preserve the `FFMPEG_BIN` setting described above.
 
 ```bash
-cd /root/discord-bot
+cd /root/discord-music-bot
 git pull --ff-only
 # Review/edit dj-miyabi.service for this host before copying.
 sudo cp dj-miyabi.service /etc/systemd/system/dj-miyabi.service
@@ -171,16 +173,18 @@ sudo ufw allow from <your-ip> to any port 3000
 
 ## Troubleshooting
 
-| Symptom | Likely Cause | Fix |
-|---|---|---|
-| Bot not responding to slash commands | Commands not registered | Run `node src/bot/deploy-commands.js` |
-| "Missing Access" on bot invite | Incorrect permissions | Re-invite via OAuth2 URL Generator (see SETUP.md) |
-| `DISCORD_TOKEN` error at startup | Missing or wrong env var | Check `.env` exists and has correct values |
-| Audio cuts out immediately / silent playback | ffmpeg missing or bundled ffmpeg-static segfaulting | `ffmpeg -version`; set `Environment=FFMPEG_BIN=/usr/bin/ffmpeg` in the unit and restart |
-| YouTube 403 / stream errors | YouTube bot detection | Usually transient; try again or use SoundCloud link |
-| TikTok URL not playing | Private or region-blocked video | Only public TikTok videos are supported |
-| Dashboard unreachable | Firewall blocking port | `sudo ufw allow 3000/tcp` |
-| Dashboard login loop | Wrong password or stale cookie | Clear browser cookies; verify `DASHBOARD_PASSWORD` in `.env` |
-| `opusscript` native errors | Missing libopus | `sudo apt install -y libopus0` |
-| PM2 doesn't restart on reboot | `pm2 save` not run | `pm2 startup systemd && pm2 save` |
-| Bot stays in empty VC | Auto-leave disabled | `/settings auto_leave 300` to set 5-minute timeout |
+| Symptom                                      | Likely Cause                                        | Fix                                                                                     |
+| -------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Bot not responding to slash commands         | Commands not registered                             | Run `node src/bot/deploy-commands.js`                                                   |
+| "Missing Access" on bot invite               | Incorrect permissions                               | Re-invite via OAuth2 URL Generator (see SETUP.md)                                       |
+| `DISCORD_TOKEN` error at startup             | Missing or wrong env var                            | Check `.env` exists and has correct values                                              |
+| Audio cuts out immediately / silent playback | ffmpeg missing or wrong binary | `ffmpeg -version`; set `Environment=FFMPEG_BIN=/usr/bin/ffmpeg` in the unit and restart |
+| All TikTok URLs fail with `Usage: yt-dlp [OPTIONS] URL` | Invalid yt-dlp flag injected by an extractor option (e.g. `cookieFile` instead of `cookies`) | Check extractor option names against `yt-dlp --help`; `youtube-dl-exec` maps camelCase → dashed flags |
+| YouTube search: "This content isn't available, try again later" for everything | yt-dlp session rate-limited by YouTube (up to 1 h) | Set `YOUTUBE_COOKIES_FILE=./data/cookies.txt` (Netscape-format cookies) and restart |
+| YouTube 403 / stream errors                  | YouTube bot detection                               | Usually transient; try again or use SoundCloud link                                     |
+| TikTok URL not playing                       | Private or region-blocked video                     | Only public TikTok videos are supported                                                 |
+| Dashboard unreachable                        | Firewall blocking port                              | `sudo ufw allow 3000/tcp`                                                               |
+| Dashboard login loop                         | Wrong password or stale cookie                      | Clear browser cookies; verify `DASHBOARD_PASSWORD` in `.env`                            |
+| `opusscript` native errors                   | Missing libopus                                     | `sudo apt install -y libopus0`                                                          |
+| PM2 doesn't restart on reboot                | `pm2 save` not run                                  | `pm2 startup systemd && pm2 save`                                                       |
+| Bot stays in empty VC                        | Auto-leave disabled                                 | `/settings auto_leave 300` to set 5-minute timeout                                      |

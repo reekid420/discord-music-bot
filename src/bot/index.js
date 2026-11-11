@@ -10,7 +10,7 @@ import { startWebServer } from '../web/server.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ─── Validate environment ───
-const requiredEnv = ['DISCORD_TOKEN', 'CLIENT_ID'];
+const requiredEnv = ['DISCORD_TOKEN', 'CLIENT_ID', 'DASHBOARD_PASSWORD'];
 for (const key of requiredEnv) {
   if (!process.env[key]) {
     console.error(`[Boot] Missing required env var: ${key}. See .env.example`);
@@ -37,7 +37,7 @@ client.commands = new Collection();
 
 async function loadCommands() {
   const commandsPath = join(__dirname, 'commands');
-  const commandFiles = readdirSync(commandsPath).filter(f => f.endsWith('.js'));
+  const commandFiles = readdirSync(commandsPath).filter((f) => f.endsWith('.js'));
 
   for (const file of commandFiles) {
     const filePath = join(commandsPath, file);
@@ -54,7 +54,7 @@ async function loadCommands() {
 // ─── Load events ───
 async function loadEvents() {
   const eventsPath = join(__dirname, 'events');
-  const eventFiles = readdirSync(eventsPath).filter(f => f.endsWith('.js'));
+  const eventFiles = readdirSync(eventsPath).filter((f) => f.endsWith('.js'));
 
   for (const file of eventFiles) {
     const filePath = join(eventsPath, file);
@@ -95,7 +95,7 @@ async function main() {
   }
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error('[Boot] Fatal error:', err);
   process.exit(1);
 });

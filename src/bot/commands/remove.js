@@ -1,12 +1,13 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { MessageFlags, SlashCommandBuilder } from 'discord.js';
 import { getMemberVoiceChannel, isInSameVC, isDJ } from '../utils/permissions.js';
 import { useQueue } from 'discord-player';
 
 export const data = new SlashCommandBuilder()
   .setName('remove')
   .setDescription('Remove a track from the queue')
-  .addIntegerOption(opt =>
-    opt.setName('position')
+  .addIntegerOption((opt) =>
+    opt
+      .setName('position')
       .setDescription('Position in queue (1 = next up)')
       .setRequired(true)
       .setMinValue(1)
@@ -15,19 +16,25 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   const vc = getMemberVoiceChannel(interaction.member);
   if (!vc || !isInSameVC(interaction.member, interaction.client)) {
-    return interaction.reply({ content: '❌ You need to be in the same voice channel.', ephemeral: true });
+    return interaction.reply({
+      content: '❌ You need to be in the same voice channel.',
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   const queue = useQueue(interaction.guildId);
   if (!queue || queue.tracks.size === 0) {
-    return interaction.reply({ content: '❌ The queue is empty.', ephemeral: true });
+    return interaction.reply({ content: '❌ The queue is empty.', flags: MessageFlags.Ephemeral });
   }
 
   const position = interaction.options.getInteger('position', true);
   const tracks = queue.tracks.toArray();
 
   if (position < 1 || position > tracks.length) {
-    return interaction.reply({ content: `❌ Invalid position. Queue has ${tracks.length} tracks.`, ephemeral: true });
+    return interaction.reply({
+      content: `❌ Invalid position. Queue has ${tracks.length} tracks.`,
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   const track = tracks[position - 1];
@@ -35,7 +42,10 @@ export async function execute(interaction) {
   // Allow removal of own tracks, or DJ can remove any
   const isOwner = track.requestedBy?.id === interaction.user.id;
   if (!isOwner && !isDJ(interaction.member)) {
-    return interaction.reply({ content: '❌ You can only remove your own tracks, or be a DJ.', ephemeral: true });
+    return interaction.reply({
+      content: '❌ You can only remove your own tracks, or be a DJ.',
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   queue.removeTrack(position - 1);

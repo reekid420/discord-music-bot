@@ -4,64 +4,91 @@ import { getGuildSettings } from '../../db/database.js';
 export const name = 'voiceStateUpdate';
 export const once = false;
 
+/** @type {Map<string, NodeJS.Timeout>} guildId → pending auto-leave timer */
+const autoLeaveTimers = new Map();
+
+const DEFAULT_AUTO_LEAVE_S = 300;
+
 /**
  * Handles voice state changes for:
  * 1. Vote-skip: remove votes when users leave VC
- * 2. Auto-leave: if bot is alone in VC
+ * 2. Auto-leave: leave after the guild's auto_leave_s when the bot is alone
  */
 export async function execute(oldState, newState) {
   const client = oldState.client || newState.client;
   const guild = oldState.guild || newState.guild;
+  const guildId = guild.id;
+  const botVC = guild.members.cache.get(client.user.id)?.voice?.channel || null;
 
-  // User left a voice channel or moved to a different one
-  const leftChannel = oldState.channel && (!newState.channel || oldState.channelId !== newState.channelId);
+  // Someone joined the bot's channel — cancel any pending auto-leave
+  if (botVC && newState.channelId === botVC.id && oldState.channelId !== botVC.id) {
+    cancelAutoLeave(guildId);
+    return;
+  }
 
-  if (leftChannel && oldState.channel) {
-    const userId = oldState.member?.id;
-    if (!userId || oldState.member?.user?.bot) return;
+  // Everything below only concerns users leaving a channel
+  const leftChannel =
+    oldState.channel && (!newState.channel || oldState.channelId !== newState.channelId);
+  if (!leftChannel) return;
 
-    const guildId = guild.id;
-    const voteState = getVoteState(guildId);
+  const userId = oldState.member?.id;
+  if (!userId || oldState.member?.user?.bot) return;
 
-    if (voteState) {
-      const settings = getGuildSettings(guildId);
-      const threshold = settings?.vote_threshold || 0.51;
+  // ─── Vote-skip: drop the leaver's vote ───
+  if (getVoteState(guildId) && botVC) {
+    const threshold = getGuildSettings(guildId)?.vote_threshold || 0.51;
+    const queue = client.player?.queues?.get(guildId);
 
-      // Get the bot's current VC
-      const botMember = guild.members.cache.get(client.user.id);
-      const botVC = botMember?.voice?.channel;
-
-      if (botVC) {
-        const player = client.player;
-        const queue = player?.queues?.get(guildId);
-
-        removeVoter(guildId, userId, botVC, threshold, () => {
-          // Skip triggered by someone leaving
-          if (queue?.currentTrack) {
-            queue.node.skip();
-            const textChannel = queue.metadata?.channel;
-            if (textChannel) {
-              textChannel.send('⏭️ Vote-skip threshold met (voter left). Skipping...');
-            }
-          }
-        });
+    removeVoter(guildId, userId, botVC, threshold, () => {
+      if (!queue?.currentTrack) return;
+      queue.node.skip();
+      const textChannel = queue.metadata?.channel;
+      if (textChannel) {
+        textChannel.send('⏭️ Vote-skip threshold met (voter left). Skipping...');
       }
-    }
+    });
+  }
 
-    // Auto-leave if bot is alone in VC
-    const botMember = guild.members.cache.get(client.user.id);
-    const botVC = botMember?.voice?.channel;
-    if (botVC && botVC.id === oldState.channelId) {
-      const nonBotMembers = botVC.members.filter(m => !m.user.bot);
-      if (nonBotMembers.size === 0) {
-        const player = client.player;
-        const queue = player?.queues?.get(guildId);
-        if (queue) {
-          queue.delete();
-          clearVotes(guildId);
-          console.log(`[Voice] Auto-left empty VC in ${guild.name}`);
-        }
-      }
+  // ─── Auto-leave: bot alone in its channel after the grace period ───
+  if (botVC && botVC.id === oldState.channelId) {
+    const humansLeft = botVC.members.filter((m) => !m.user.bot).size;
+    if (humansLeft === 0) scheduleAutoLeave(client, guild, botVC);
+  }
+}
+
+/**
+ * Schedule disconnect for an empty VC, honoring the guild's auto_leave_s
+ * setting (0 disables auto-leave).
+ */
+function scheduleAutoLeave(client, guild, botVC) {
+  const delayS = getGuildSettings(guild.id)?.auto_leave_s ?? DEFAULT_AUTO_LEAVE_S;
+  if (delayS <= 0) return; // auto-leave disabled
+
+  cancelAutoLeave(guild.id);
+  console.log(`[Voice] VC empty in ${guild.name} — leaving in ${delayS}s`);
+
+  const timer = setTimeout(() => {
+    autoLeaveTimers.delete(guild.id);
+
+    // Re-check: someone may have rejoined during the wait
+    const stillEmpty = botVC.members && botVC.members.filter((m) => !m.user.bot).size === 0;
+    if (!stillEmpty) return;
+
+    const queue = client.player?.queues?.get(guild.id);
+    if (queue) {
+      queue.delete();
+      clearVotes(guild.id);
+      console.log(`[Voice] Auto-left empty VC in ${guild.name} after ${delayS}s`);
     }
+  }, delayS * 1000);
+  timer.unref();
+  autoLeaveTimers.set(guild.id, timer);
+}
+
+function cancelAutoLeave(guildId) {
+  const timer = autoLeaveTimers.get(guildId);
+  if (timer) {
+    clearTimeout(timer);
+    autoLeaveTimers.delete(guildId);
   }
 }

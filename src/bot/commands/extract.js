@@ -1,7 +1,6 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import { useQueue } from 'discord-player';
 import youtubeDl from 'youtube-dl-exec';
-import ffmpegPath from 'ffmpeg-static';
 import { unlink, stat } from 'fs';
 import { readdir } from 'fs/promises';
 import { promisify } from 'util';
@@ -11,20 +10,20 @@ import { randomUUID } from 'crypto';
 import { writeVerboseLog } from '../utils/logger.js';
 
 const unlinkAsync = promisify(unlink);
-const statAsync   = promisify(stat);
+const statAsync = promisify(stat);
 
 // Discord's default upload limit for non-boosted servers.
 const DISCORD_MAX_BYTES = 25 * 1024 * 1024;
 
 const FORMAT_CHOICES = [
   { name: 'mp4 — video (default)', value: 'mp4' },
-  { name: 'mp3 — audio',           value: 'mp3' },
-  { name: 'wav — audio',           value: 'wav' },
-  { name: 'flac — audio',          value: 'flac' },
-  { name: 'aac — audio',           value: 'aac' },
-  { name: 'ogg — audio',           value: 'ogg' },
-  { name: 'webm — video',          value: 'webm' },
-  { name: 'mkv — video',           value: 'mkv' },
+  { name: 'mp3 — audio', value: 'mp3' },
+  { name: 'wav — audio', value: 'wav' },
+  { name: 'flac — audio', value: 'flac' },
+  { name: 'aac — audio', value: 'aac' },
+  { name: 'ogg — audio', value: 'ogg' },
+  { name: 'webm — video', value: 'webm' },
+  { name: 'mkv — video', value: 'mkv' },
 ];
 
 const AUDIO_FORMATS = new Set(['mp3', 'wav', 'flac', 'aac', 'ogg']);
@@ -32,20 +31,24 @@ const AUDIO_FORMATS = new Set(['mp3', 'wav', 'flac', 'aac', 'ogg']);
 export const data = new SlashCommandBuilder()
   .setName('extract')
   .setDescription('Download a track and send it to your DMs')
-  .addStringOption(opt =>
-    opt.setName('url')
-      .setDescription("Link to extract (YouTube, TikTok, Spotify, SoundCloud…); leave blank to extract what's playing")
+  .addStringOption((opt) =>
+    opt
+      .setName('url')
+      .setDescription(
+        "Link to extract (YouTube, TikTok, Spotify, SoundCloud…); leave blank to extract what's playing"
+      )
       .setRequired(false)
   )
-  .addStringOption(opt =>
-    opt.setName('format')
+  .addStringOption((opt) =>
+    opt
+      .setName('format')
       .setDescription('Output format (default: mp4)')
       .setRequired(false)
       .addChoices(...FORMAT_CHOICES)
   );
 
 export async function execute(interaction) {
-  const url    = interaction.options.getString('url') || null;
+  const url = interaction.options.getString('url') || null;
   const format = interaction.options.getString('format') || 'mp4';
   const isAudio = AUDIO_FORMATS.has(format);
 
@@ -57,10 +60,10 @@ export async function execute(interaction) {
   log(`Request from ${interaction.user.tag} — url=${url ?? '(current track)'} format=${format}`);
 
   // Defer ephemerally — yt-dlp can take 10–30 s
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   // ─── Resolve URL & title ──────────────────────────────────────
-  let trackUrl   = url;
+  let trackUrl = url;
   let trackTitle = null;
 
   if (!trackUrl) {
@@ -71,7 +74,7 @@ export async function execute(interaction) {
         content: '❌ Nothing is playing right now and no URL was provided.',
       });
     }
-    trackUrl   = queue.currentTrack.url;
+    trackUrl = queue.currentTrack.url;
     trackTitle = queue.currentTrack.title;
     log(`Using current track: "${trackTitle}" — ${trackUrl}`);
   }
@@ -96,26 +99,26 @@ export async function execute(interaction) {
   }
 
   // ─── Build yt-dlp download options ────────────────────────────
-  const uid         = randomUUID();
-  const tmpBase     = join(tmpdir(), `miyabi-extract-${uid}`);
+  const uid = randomUUID();
+  const tmpBase = join(tmpdir(), `miyabi-extract-${uid}`);
   const outTemplate = `${tmpBase}.%(ext)s`;
 
   /** @type {Record<string, any>} */
   const ytdlpOpts = {
-    output:         outTemplate,
-    noPlaylist:     true,
-    noWarnings:     true,
-    ffmpegLocation: ffmpegPath, // use bundled ffmpeg so remux/conversion works
+    output: outTemplate,
+    noPlaylist: true,
+    noWarnings: true,
+    ffmpegLocation: process.env.FFMPEG_BIN || 'ffmpeg', // system ffmpeg (see DEPLOYMENT.md)
   };
 
   if (isAudio) {
     ytdlpOpts.extractAudio = true;
-    ytdlpOpts.audioFormat  = format === 'ogg' ? 'vorbis' : format;
+    ytdlpOpts.audioFormat = format === 'ogg' ? 'vorbis' : format;
     ytdlpOpts.audioQuality = 0; // best
   } else {
     // For video: download best streams and remux into the target container.
     // Without ffmpegLocation yt-dlp may skip the merge and leave webm as-is.
-    ytdlpOpts.format            = 'bestvideo+bestaudio/best';
+    ytdlpOpts.format = 'bestvideo+bestaudio/best';
     ytdlpOpts.mergeOutputFormat = format; // mp4 / webm / mkv
   }
 
@@ -129,7 +132,9 @@ export async function execute(interaction) {
     filePath = await findOutputFile(tmpBase);
 
     if (!filePath) {
-      throw new Error('yt-dlp finished but the output file could not be found in the temp directory.');
+      throw new Error(
+        'yt-dlp finished but the output file could not be found in the temp directory.'
+      );
     }
     log(`Download complete: ${filePath}`);
   } catch (err) {
@@ -160,13 +165,14 @@ export async function execute(interaction) {
 
   // ─── Build attachment filename ────────────────────────────────
   const displayTitle = trackTitle || fallbackTitleFromUrl(trackUrl);
-  const safeName     = displayTitle
-    .replace(/[^\w\s\-().&,!']/g, '') // keep common punctuation
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 100) || 'track';
+  const safeName =
+    displayTitle
+      .replace(/[^\w\s\-().&,!']/g, '') // keep common punctuation
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 100) || 'track';
 
-  const ext            = format === 'ogg' ? 'ogg' : format;
+  const ext = format === 'ogg' ? 'ogg' : format;
   const attachmentName = `${safeName}.${ext}`;
 
   // ─── Open DM & send ───────────────────────────────────────────
@@ -185,7 +191,7 @@ export async function execute(interaction) {
       log('DM failed — user has DMs disabled.');
       return interaction.editReply({
         content:
-          '❌ I couldn\'t send you a DM.\n' +
+          "❌ I couldn't send you a DM.\n" +
           'Please enable **"Allow direct messages from server members"** in your Privacy Settings and try again.',
       });
     }
@@ -203,12 +209,12 @@ export async function execute(interaction) {
 
   // ─── Success reply ────────────────────────────────────────────
   const embed = new EmbedBuilder()
-    .setColor(0x7C3AED)
+    .setColor(0x7c3aed)
     .setTitle('✅ Sent to your DMs!')
     .setDescription(`**${displayTitle}**`)
     .addFields(
       { name: 'Format', value: format.toUpperCase(), inline: true },
-      { name: 'Type',   value: isAudio ? 'Audio' : 'Video', inline: true },
+      { name: 'Type', value: isAudio ? 'Audio' : 'Video', inline: true }
     )
     .setFooter({ text: 'Check your DMs — the file is on its way!' })
     .setTimestamp();
@@ -227,12 +233,12 @@ export async function execute(interaction) {
  * @returns {Promise<string|null>}
  */
 async function findOutputFile(tmpBase) {
-  const dir      = tmpdir();
+  const dir = tmpdir();
   const baseName = tmpBase.slice(dir.length).replace(/^[\\/]/, '');
 
   try {
     const files = await readdir(dir);
-    const match = files.find(f => f.startsWith(baseName) && !f.endsWith('.part'));
+    const match = files.find((f) => f.startsWith(baseName) && !f.endsWith('.part'));
     return match ? join(dir, match) : null;
   } catch {
     return null;
@@ -246,11 +252,16 @@ async function findOutputFile(tmpBase) {
  */
 function sanitizeError(msg) {
   if (!msg) return 'Unknown error';
+  // eslint-disable-next-line no-control-regex -- strip ANSI escape codes intentionally
   const clean = msg.replace(/\x1B\[[0-9;]*m/g, '');
-  const lines = clean.split('\n').map(l => l.trim()).filter(Boolean);
-  const errLine = lines.find(l =>
-    l.toLowerCase().includes('error') || l.toLowerCase().includes('unable')
-  ) || lines[0] || 'Unknown error';
+  const lines = clean
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const errLine =
+    lines.find((l) => l.toLowerCase().includes('error') || l.toLowerCase().includes('unable')) ||
+    lines[0] ||
+    'Unknown error';
   return errLine.slice(0, 200);
 }
 

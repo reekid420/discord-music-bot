@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import { getMemberVoiceChannel, isInSameVC, isDJ } from '../utils/permissions.js';
 import { useQueue } from 'discord-player';
 import { castVote } from '../utils/voteSkip.js';
@@ -11,12 +11,15 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   const vc = getMemberVoiceChannel(interaction.member);
   if (!vc || !isInSameVC(interaction.member, interaction.client)) {
-    return interaction.reply({ content: '❌ You need to be in the same voice channel.', ephemeral: true });
+    return interaction.reply({
+      content: '❌ You need to be in the same voice channel.',
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   const queue = useQueue(interaction.guildId);
   if (!queue || !queue.currentTrack) {
-    return interaction.reply({ content: '❌ Nothing is playing right now.', ephemeral: true });
+    return interaction.reply({ content: '❌ Nothing is playing right now.', flags: MessageFlags.Ephemeral });
   }
 
   // DJ or Admin gets force skip
@@ -31,16 +34,11 @@ export async function execute(interaction) {
   const threshold = settings?.vote_threshold || 0.51;
   const songId = queue.currentTrack.url || queue.currentTrack.title;
 
-  const result = castVote(
-    interaction.guildId,
-    interaction.user.id,
-    songId,
-    vc,
-    threshold,
-    () => queue.node.skip()
+  const result = castVote(interaction.guildId, interaction.user.id, songId, vc, threshold, () =>
+    queue.node.skip()
   );
 
-  const embed = new EmbedBuilder().setColor(0x7C3AED);
+  const embed = new EmbedBuilder().setColor(0x7c3aed);
 
   switch (result.status) {
     case 'solo_skip':

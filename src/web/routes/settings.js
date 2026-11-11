@@ -19,8 +19,8 @@ export function settingsRoutes(client) {
     const guild = client.guilds.cache.get(guildId);
     const roles = guild
       ? guild.roles.cache
-          .filter(r => r.name !== '@everyone')
-          .map(r => ({ id: r.id, name: r.name, color: r.hexColor }))
+          .filter((r) => r.name !== '@everyone')
+          .map((r) => ({ id: r.id, name: r.name, color: r.hexColor }))
           .sort((a, b) => a.name.localeCompare(b.name))
       : [];
 

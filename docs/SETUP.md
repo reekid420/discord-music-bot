@@ -6,10 +6,9 @@
 2. Click **"New Application"** → name it (e.g. "DJ Miyabi") → **Create**
 3. Navigate to the **"Bot"** tab in the sidebar
 4. Click **"Reset Token"** → copy the token → **save it securely** (this is your `DISCORD_TOKEN`)
-5. Under **"Privileged Gateway Intents"**, enable:
-   - ✅ Presence Intent
-   - ✅ Server Members Intent
-   - ✅ Message Content Intent
+5. Under **"Privileged Gateway Intents"**, leave everything **disabled** —
+   the bot only needs the non-privileged `Guilds` and `GuildVoiceStates`
+   intents (enabled automatically in code). No privileged intents are required.
 6. Click **Save Changes**
 
 ## 2. Get Your Client ID
@@ -48,8 +47,11 @@ cp .env.example .env
 # DISCORD_TOKEN=<your bot token>
 # CLIENT_ID=<your application ID>
 # GUILD_ID=<your server ID>  (optional)
-# DASHBOARD_PASSWORD=<pick a strong password>
+# DASHBOARD_PASSWORD=<pick a strong password>  (required — the bot won't start without it)
+# DB_PATH=./data/miyabi.db        (optional — SQLite database location)
+# UPLOADS_DIR=./uploads           (optional — where dashboard uploads are stored)
 # TIKTOK_COOKIES_FILE=<path to cookies file>  (optional — for age-gated TikToks)
+# YOUTUBE_COOKIES_FILE=<path to cookies file> (recommended — without it YouTube rate-limits yt-dlp)
 ```
 
 ## 6. Install Dependencies (Debian 13)
@@ -86,11 +88,13 @@ If not set, commands register globally (can take up to 1 hour).
 ## 8. Start the Bot
 
 ### Development (with auto-restart on file changes)
+
 ```bash
 pnpm run dev
 ```
 
 ### Production (with PM2)
+
 ```bash
 # Install PM2 globally
 pnpm add -g pm2
@@ -118,11 +122,21 @@ Enter the password you set in `DASHBOARD_PASSWORD`.
 
 ## Troubleshooting
 
-| Issue | Solution |
-|---|---|
-| Bot not responding to commands | Run `node src/bot/deploy-commands.js` again |
-| "Missing Access" error | Re-invite bot with correct permissions (Step 3) |
-| Audio cutting out / silent playback | Check ffmpeg: `ffmpeg -version`. If using systemd, also set `Environment=FFMPEG_BIN=/usr/bin/ffmpeg` in the unit (bundled ffmpeg-static can segfault on some hosts) |
-| YouTube 403 errors | Usually temporary; SoundCloud fallback should work |
-| Dashboard won't connect | Check firewall allows port 3000 |
-| `opusscript` errors | Install native opus: `sudo apt install libopus0` |
+| Issue                               | Solution                                                                                                                                                            |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bot not responding to commands      | Run `node src/bot/deploy-commands.js` again (or `pnpm deploy`) — **always needed after adding/changing commands**, then restart                                     |
+| "Missing Access" error              | Re-invite bot with correct permissions (Step 3)                                                                                                                     |
+| Audio cutting out / silent playback | Check ffmpeg: `ffmpeg -version`. If using systemd, set `Environment=FFMPEG_BIN=/usr/bin/ffmpeg` in the unit                                                          |
+| All TikTok URLs fail                | Extractor yt-dlp flag bug — see DEPLOYMENT.md troubleshooting                                                                                                       |
+| YouTube "content isn't available"   | Rate-limited session — set `YOUTUBE_COOKIES_FILE=./data/cookies.txt`                                                                                                |
+| Dashboard won't connect             | Check firewall allows port 3000                                                                                                                                     |
+| `opusscript` errors                 | Install native opus: `sudo apt install libopus0`                                                                                                                    |
+
+## Development
+
+```bash
+pnpm install          # install deps (pnpm; Node 22+)
+npm run lint          # ESLint — must pass before committing
+npm test              # vitest suite
+npm run dev           # run the bot with --watch
+```

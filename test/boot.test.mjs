@@ -66,7 +66,12 @@ function boot(scenario) {
   ], {
     encoding: 'utf8',
     timeout: 5000,
-    env: { ...process.env, DISCORD_TOKEN: 'mock-token', CLIENT_ID: 'mock-client' },
+    env: {
+      ...process.env,
+      DISCORD_TOKEN: 'mock-token',
+      CLIENT_ID: 'mock-client',
+      DASHBOARD_PASSWORD: 'test-only',
+    },
   });
   assert.ifError(result.error);
   assert.equal(result.signal, null);

@@ -20,7 +20,9 @@ function rotateIfNeeded() {
     if (fs.existsSync(older)) fs.rmSync(older, { force: true });
     if (fs.existsSync(logFile + '.old')) fs.renameSync(logFile + '.old', older);
     fs.renameSync(logFile, logFile + '.old');
-  } catch { /* rotation is best-effort */ }
+  } catch {
+    /* rotation is best-effort */
+  }
 }
 
 /**

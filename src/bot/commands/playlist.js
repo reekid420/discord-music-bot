@@ -1,76 +1,115 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import { getMemberVoiceChannel, isDJ } from '../utils/permissions.js';
 import { QueryType, useQueue } from 'discord-player';
 import { isYouTubePlaylistUrl } from '../utils/urlHelpers.js';
 import {
-  createPlaylist, getUserPlaylists, getAllPlaylists,
-  getPlaylistByName, getPlaylistByNameGlobal, getPlaylistById,
-  getPlaylistTracks, addPlaylistTrack, deletePlaylist, updatePlaylist,
+  createPlaylist,
+  getUserPlaylists,
+  getAllPlaylists,
+  getPlaylistByName,
+  resolvePlaylistByName,
+  getPlaylistTracks,
+  addPlaylistTrack,
+  deletePlaylist,
+  updatePlaylist,
+  getGuildSettings,
 } from '../../db/database.js';
 import { truncate } from '../utils/formatters.js';
 
 export const data = new SlashCommandBuilder()
   .setName('playlist')
   .setDescription('Manage your playlists')
-  .addSubcommand(sub =>
-    sub.setName('create')
+  .addSubcommand((sub) =>
+    sub
+      .setName('create')
       .setDescription('Create a new playlist')
-      .addStringOption(opt => opt.setName('name').setDescription('Playlist name').setRequired(true))
+      .addStringOption((opt) =>
+        opt.setName('name').setDescription('Playlist name').setRequired(true)
+      )
   )
-  .addSubcommand(sub =>
-    sub.setName('add')
+  .addSubcommand((sub) =>
+    sub
+      .setName('add')
       .setDescription('Add the current track or a query to a playlist')
-      .addStringOption(opt => opt.setName('name').setDescription('Playlist name').setRequired(true))
-      .addStringOption(opt => opt.setName('query').setDescription('Optional: URL or search query to add instead of current track'))
+      .addStringOption((opt) =>
+        opt.setName('name').setDescription('Playlist name').setRequired(true)
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName('query')
+          .setDescription('Optional: URL or search query to add instead of current track')
+      )
   )
-  .addSubcommand(sub =>
-    sub.setName('play')
+  .addSubcommand((sub) =>
+    sub
+      .setName('play')
       .setDescription('Enqueue all tracks from a playlist')
-      .addStringOption(opt => opt.setName('name').setDescription('Playlist name').setRequired(true))
+      .addStringOption((opt) =>
+        opt.setName('name').setDescription('Playlist name').setRequired(true)
+      )
   )
-  .addSubcommand(sub =>
-    sub.setName('list')
-      .setDescription('List your playlists')
-  )
-  .addSubcommand(sub =>
-    sub.setName('view')
+  .addSubcommand((sub) => sub.setName('list').setDescription('List your playlists'))
+  .addSubcommand((sub) =>
+    sub
+      .setName('view')
       .setDescription('View tracks in a playlist')
-      .addStringOption(opt => opt.setName('name').setDescription('Playlist name').setRequired(true))
+      .addStringOption((opt) =>
+        opt.setName('name').setDescription('Playlist name').setRequired(true)
+      )
   )
-  .addSubcommand(sub =>
-    sub.setName('delete')
+  .addSubcommand((sub) =>
+    sub
+      .setName('delete')
       .setDescription('Delete a playlist you own')
-      .addStringOption(opt => opt.setName('name').setDescription('Playlist name').setRequired(true))
+      .addStringOption((opt) =>
+        opt.setName('name').setDescription('Playlist name').setRequired(true)
+      )
   )
-  .addSubcommand(sub =>
-    sub.setName('share')
+  .addSubcommand((sub) =>
+    sub
+      .setName('share')
       .setDescription('Toggle a playlist as public/private')
-      .addStringOption(opt => opt.setName('name').setDescription('Playlist name').setRequired(true))
+      .addStringOption((opt) =>
+        opt.setName('name').setDescription('Playlist name').setRequired(true)
+      )
   );
 
 export async function execute(interaction) {
   const sub = interaction.options.getSubcommand();
 
   switch (sub) {
-    case 'create': return handleCreate(interaction);
-    case 'add': return handleAdd(interaction);
-    case 'play': return handlePlay(interaction);
-    case 'list': return handleList(interaction);
-    case 'view': return handleView(interaction);
-    case 'delete': return handleDelete(interaction);
-    case 'share': return handleShare(interaction);
+    case 'create':
+      return handleCreate(interaction);
+    case 'add':
+      return handleAdd(interaction);
+    case 'play':
+      return handlePlay(interaction);
+    case 'list':
+      return handleList(interaction);
+    case 'view':
+      return handleView(interaction);
+    case 'delete':
+      return handleDelete(interaction);
+    case 'share':
+      return handleShare(interaction);
   }
 }
 
 async function handleCreate(interaction) {
   const name = interaction.options.getString('name', true).trim();
   if (name.length > 50) {
-    return interaction.reply({ content: '❌ Playlist name must be 50 characters or less.', ephemeral: true });
+    return interaction.reply({
+      content: '❌ Playlist name must be 50 characters or less.',
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   const existing = getPlaylistByName(interaction.user.id, name);
   if (existing) {
-    return interaction.reply({ content: `❌ You already have a playlist called **${name}**.`, ephemeral: true });
+    return interaction.reply({
+      content: `❌ You already have a playlist called **${name}**.`,
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   const playlist = createPlaylist(interaction.user.id, name, interaction.guildId);
@@ -81,15 +120,17 @@ async function handleAdd(interaction) {
   const name = interaction.options.getString('name', true).trim();
   const query = interaction.options.getString('query');
 
-  let playlist = getPlaylistByName(interaction.user.id, name);
-
-  // Admins/DJs can add to any playlist (including web-created ones)
-  if (!playlist && isDJ(interaction.member)) {
-    playlist = getPlaylistByNameGlobal(name);
-  }
+  // Own playlists, or any playlist for admins/DJs
+  const playlist = resolvePlaylistByName(name, interaction.user.id, {
+    includePublic: false,
+    djOverride: isDJ(interaction.member),
+  });
 
   if (!playlist) {
-    return interaction.reply({ content: `❌ You don't have a playlist called **${name}**.`, ephemeral: true });
+    return interaction.reply({
+      content: `❌ You don't have a playlist called **${name}**.`,
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   if (query) {
@@ -113,7 +154,9 @@ async function handleAdd(interaction) {
               thumbnail: track.thumbnail,
             });
             added++;
-          } catch { /* skip duplicates */ }
+          } catch {
+            /* skip duplicates */
+          }
         }
         const plName = result.playlist?.title || 'YouTube Playlist';
         return interaction.followUp(
@@ -145,7 +188,10 @@ async function handleAdd(interaction) {
   // No query → add currently playing track
   const queue = useQueue(interaction.guildId);
   if (!queue || !queue.currentTrack) {
-    return interaction.reply({ content: '❌ Nothing is playing. Provide a query or play a track first.', ephemeral: true });
+    return interaction.reply({
+      content: '❌ Nothing is playing. Provide a query or play a track first.',
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   const track = queue.currentTrack;
@@ -161,37 +207,32 @@ async function handleAdd(interaction) {
 async function handlePlay(interaction) {
   const vc = getMemberVoiceChannel(interaction.member);
   if (!vc) {
-    return interaction.reply({ content: '❌ You need to be in a voice channel.', ephemeral: true });
+    return interaction.reply({ content: '❌ You need to be in a voice channel.', flags: MessageFlags.Ephemeral });
   }
 
   const name = interaction.options.getString('name', true).trim();
-  let playlist = getPlaylistByName(interaction.user.id, name);
 
-  // Fallback 1: public playlists (any owner)
-  if (!playlist) {
-    const { getDb } = await import('../../db/database.js');
-    playlist = getDb().prepare(
-      'SELECT * FROM playlists WHERE name = ? AND is_public = 1'
-    ).get(name);
-  }
-
-  // Fallback 2: admins/DJs can play ANY playlist (including web-created ones)
-  if (!playlist && isDJ(interaction.member)) {
-    playlist = getPlaylistByNameGlobal(name);
-  }
+  // Own → public → (DJ) any
+  const playlist = resolvePlaylistByName(name, interaction.user.id, {
+    djOverride: isDJ(interaction.member),
+  });
 
   if (!playlist) {
-    return interaction.reply({ content: `❌ Playlist **${name}** not found.`, ephemeral: true });
+    return interaction.reply({ content: `❌ Playlist **${name}** not found.`, flags: MessageFlags.Ephemeral });
   }
 
   const tracks = getPlaylistTracks(playlist.id);
   if (tracks.length === 0) {
-    return interaction.reply({ content: `❌ Playlist **${name}** is empty.`, ephemeral: true });
+    return interaction.reply({ content: `❌ Playlist **${name}** is empty.`, flags: MessageFlags.Ephemeral });
   }
 
   await interaction.deferReply();
 
   const player = interaction.client.player;
+  const defaultVolume = Math.max(
+    1,
+    Math.min(100, getGuildSettings(interaction.guildId)?.default_volume ?? 80)
+  );
   let added = 0;
 
   for (const t of tracks) {
@@ -199,7 +240,7 @@ async function handlePlay(interaction) {
       await player.play(vc, t.url, {
         nodeOptions: {
           metadata: { channel: interaction.channel, guild: interaction.guild },
-          volume: 80,
+          volume: defaultVolume,
           leaveOnEmpty: true,
           leaveOnEmptyCooldown: 300_000,
           leaveOnEnd: false,
@@ -215,31 +256,39 @@ async function handlePlay(interaction) {
     }
   }
 
-  await interaction.followUp(`📋 Enqueued **${added}/${tracks.length}** tracks from playlist **${name}**.`);
+  await interaction.followUp(
+    `📋 Enqueued **${added}/${tracks.length}** tracks from playlist **${name}**.`
+  );
 }
 
 async function handleList(interaction) {
   const isAdmin = isDJ(interaction.member);
 
   // Admins/DJs see all playlists across all owners (including web-created ones)
-  const playlists = isAdmin
-    ? getAllPlaylists()
-    : getUserPlaylists(interaction.user.id);
+  const playlists = isAdmin ? getAllPlaylists() : getUserPlaylists(interaction.user.id);
 
   if (playlists.length === 0) {
-    return interaction.reply({ content: 'No playlists yet. Create one with `/playlist create`.', ephemeral: true });
+    return interaction.reply({
+      content: 'No playlists yet. Create one with `/playlist create`.',
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   const embed = new EmbedBuilder()
-    .setColor(0x7C3AED)
+    .setColor(0x7c3aed)
     .setTitle(isAdmin ? '📋 All Playlists' : '📋 Your Playlists')
     .setDescription(
-      playlists.map((p, i) => {
-        const tracks = getPlaylistTracks(p.id);
-        const pub = p.is_public ? '🌐' : '🔒';
-        const owner = p.owner_id === interaction.user.id ? '' : ` *(by ${p.owner_id === 'dashboard' ? 'web dashboard' : `<@${p.owner_id}>`})*`;
-        return `**${i + 1}.** ${pub} ${p.name}${owner} — ${tracks.length} tracks`;
-      }).join('\n')
+      playlists
+        .map((p, i) => {
+          const tracks = getPlaylistTracks(p.id);
+          const pub = p.is_public ? '🌐' : '🔒';
+          const owner =
+            p.owner_id === interaction.user.id
+              ? ''
+              : ` *(by ${p.owner_id === 'dashboard' ? 'web dashboard' : `<@${p.owner_id}>`})*`;
+          return `**${i + 1}.** ${pub} ${p.name}${owner} — ${tracks.length} tracks`;
+        })
+        .join('\n')
     )
     .setTimestamp();
 
@@ -248,28 +297,20 @@ async function handleList(interaction) {
 
 async function handleView(interaction) {
   const name = interaction.options.getString('name', true).trim();
-  let playlist = getPlaylistByName(interaction.user.id, name);
+
+  // Own → public → (DJ) any
+  const playlist = resolvePlaylistByName(name, interaction.user.id, {
+    djOverride: isDJ(interaction.member),
+  });
 
   if (!playlist) {
-    const { getDb } = await import('../../db/database.js');
-    playlist = getDb().prepare(
-      'SELECT * FROM playlists WHERE name = ? AND is_public = 1'
-    ).get(name);
-  }
-
-  // Admins/DJs can view any playlist
-  if (!playlist && isDJ(interaction.member)) {
-    playlist = getPlaylistByNameGlobal(name);
-  }
-
-  if (!playlist) {
-    return interaction.reply({ content: `❌ Playlist **${name}** not found.`, ephemeral: true });
+    return interaction.reply({ content: `❌ Playlist **${name}** not found.`, flags: MessageFlags.Ephemeral });
   }
 
   const tracks = getPlaylistTracks(playlist.id);
 
   const embed = new EmbedBuilder()
-    .setColor(0x7C3AED)
+    .setColor(0x7c3aed)
     .setTitle(`📋 ${playlist.name}`)
     .setDescription(
       tracks.length === 0
@@ -287,7 +328,10 @@ async function handleDelete(interaction) {
   const playlist = getPlaylistByName(interaction.user.id, name);
 
   if (!playlist) {
-    return interaction.reply({ content: `❌ You don't have a playlist called **${name}**.`, ephemeral: true });
+    return interaction.reply({
+      content: `❌ You don't have a playlist called **${name}**.`,
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   deletePlaylist(playlist.id);
@@ -299,10 +343,15 @@ async function handleShare(interaction) {
   const playlist = getPlaylistByName(interaction.user.id, name);
 
   if (!playlist) {
-    return interaction.reply({ content: `❌ You don't have a playlist called **${name}**.`, ephemeral: true });
+    return interaction.reply({
+      content: `❌ You don't have a playlist called **${name}**.`,
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   const newPublic = !playlist.is_public;
   updatePlaylist(playlist.id, { is_public: newPublic });
-  await interaction.reply(`${newPublic ? '🌐' : '🔒'} Playlist **${name}** is now **${newPublic ? 'public' : 'private'}**.`);
+  await interaction.reply(
+    `${newPublic ? '🌐' : '🔒'} Playlist **${name}** is now **${newPublic ? 'public' : 'private'}**.`
+  );
 }
