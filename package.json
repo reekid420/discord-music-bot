@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/bot/index.js",
+    "test": "node --test test/*.test.mjs",
     "deploy": "node src/bot/deploy-commands.js",
     "dev": "node --watch src/bot/index.js",
     "test": "vitest run",
